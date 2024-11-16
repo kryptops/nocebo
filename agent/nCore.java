@@ -61,7 +61,7 @@ import java.security.InvalidKeyException;
 class nConfig
 {
     public static int locTcpPort = 49602;
-    public static String encKey = "";
+    public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static int metastasize = 0;
     public static String uri = "https://wideking.git-monitor.com/ncs/1.jsp";
     public static int isKeystone = 0;

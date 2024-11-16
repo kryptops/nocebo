@@ -51,6 +51,7 @@ import java.text.SimpleDateFormat;
 class endpoints
 {
 	static String passwd = "T__+Pmv.REW=u9iXBB-";
+	static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
 	static noceboApiUtil napi = new noceboApiUtil();
 	static security sapi = new security();
 	static Hashtable<String,session> sessionTable = new Hashtable();
