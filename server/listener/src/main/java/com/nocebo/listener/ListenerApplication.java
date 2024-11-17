@@ -2,7 +2,10 @@ package com.nocebo.listener;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.annotation.RequestScope;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -186,6 +189,21 @@ class noceboApi
 		//{
 
 		//}
+
+	}
+
+	@Configuration
+	class SecurityConfig 
+	{
+		@Bean
+ 		SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+			return http
+      			.requiresChannel(channel -> 
+          			channel.anyRequest().requiresSecure())
+      			.authorizeRequests(authorize ->
+          			authorize.anyRequest().permitAll())
+      			.build();
+    	}
 
 	}
 
