@@ -130,6 +130,7 @@ public class nCore
 
                     nonce = xmlResponse.get("nonce").toString();
                     cookieData = xmlResponse.get("cookie").toString();
+                    cookieData = xmlResponse.get("key").toString();
 
                     ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
 
@@ -201,7 +202,7 @@ public class nCore
             if (methObj.get("error").toString() != "null")
             {
                 Hashtable<String,String> outObj = new Hashtable<>();
-                outObj.put("mod",new Object(){}.getClass().getEnclosingMethod().getName());
+                outObj.put("method",new Object(){}.getClass().getEnclosingMethod().getName());
                 outObj.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
                 outObj.put("output","");
                 outObj.put("error",String.format("Unable to load method %s, exception follows: %s",methodName,methObj.get("error").toString()));
