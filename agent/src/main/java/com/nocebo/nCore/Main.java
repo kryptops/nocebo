@@ -201,6 +201,7 @@ public class Main
 
             Class classObj = packager.load(className, classical);
             Hashtable methObj = nUtil.getMethodByName(classObj, methodName);
+            
 
             if (methObj.get("error").toString() != "null")
             {
@@ -239,6 +240,7 @@ public class Main
         network nComm = new network();
         if (output.size() > 0)
         {
+            System.out.println("output available");
             for (int d=0;d<output.size();d++)
             {
                 try {
