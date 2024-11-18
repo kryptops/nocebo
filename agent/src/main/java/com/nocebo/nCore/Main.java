@@ -223,6 +223,7 @@ public class Main
             }
         }   
 
+        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
         send();
     }
 
@@ -238,6 +239,7 @@ public class Main
     public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         network nComm = new network();
+        System.out.println(output.size());
         if (output.size() > 0)
         {
             System.out.println("output available");
@@ -250,11 +252,13 @@ public class Main
                 }
                 catch (Exception e)
                 {
+                    System.out.println(e.getMessage());
                     continue;
                 }
             }
         }
-        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
+        
+        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,7))*1000);
         keepalive();
     }
 
