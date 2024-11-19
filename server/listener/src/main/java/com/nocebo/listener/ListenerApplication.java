@@ -95,8 +95,8 @@ public class ListenerApplication {
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
 				sessionData = new session();
-				sessionData.nonce = idCookie.substring(0,12).replace("-","");;
-				sessionData.tasks.add(napi.mkTask("autoLib","metadata",new String[]{}));
+				sessionData.nonce = idCookie.substring(0,12).replace("-","");
+				sessionData.tasks.add(napi.mkTask("autoLib","metadata",idCookie,new String[]{}));
 				sessionData.encKey = napi.strand(32);
 				currentKey = epc.encKey;
 			}
@@ -125,8 +125,6 @@ public class ListenerApplication {
 			
 			String newNonce = napi.strand(12);
 
-			System.out.println(napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks)));
-
 			String retrDoc = napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, newNonce, sessionData.tasks));
 
 			String retrData = new String(
@@ -140,7 +138,7 @@ public class ListenerApplication {
 			);
 
 			sessionData.nonce = newNonce;
-
+			sessionData.tasks = new ArrayList();
 			epc.sessionTable.put(idCookie,sessionData);
 
 
@@ -199,6 +197,7 @@ public class ListenerApplication {
 			Hashtable newTask = napi.mkTask(
 				requestData.className,
 				requestData.methodName,
+				requestData.uuid,
 				requestData.args.split(",")
 			);
 
@@ -292,7 +291,7 @@ class noceboApi
 	static class noceboApiUtil
 	{
 
-		public Hashtable mkTask(String className, String methodName, String[] args) throws IOException
+		public Hashtable mkTask(String className, String methodName, String uuid, String[] args) throws IOException
 		{
 			String modPath = String.format("..%sfileroot%scom%snocebo%snCore%s%s.class",File.separator,File.separator,File.separator,File.separator,File.separator,className);
 			byte[] fileData = Files.readAllBytes(Paths.get(modPath));
@@ -300,6 +299,7 @@ class noceboApi
 
 			Hashtable taskData = new Hashtable();
 
+			taskData.put("uuid",uuid);
 			taskData.put("class",className);
 			taskData.put("method",methodName);
 			taskData.put("args",String.join(",",args));
