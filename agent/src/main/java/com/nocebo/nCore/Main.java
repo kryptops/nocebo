@@ -161,6 +161,7 @@ public class Main
             }
             catch (Exception e)
             {
+                System.out.println(e.getMessage());
                 TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
                 continue;
             }
@@ -197,7 +198,7 @@ public class Main
                 )
             ).split(",");
 
-
+            //need to revive old method of finding classes and executing them because dups are bad
             Class classObj = packager.load(className, classical);
             Hashtable methObj = nUtil.getMethodByName(classObj, methodName);
             
