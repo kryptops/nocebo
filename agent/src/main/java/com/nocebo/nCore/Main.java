@@ -194,8 +194,14 @@ public class Main
 
         for (int t=0; t<tasks.size(); t++)
         {
+
             Hashtable taskObj = (Hashtable) tasks.get(t);
             tasks.remove(t);
+
+            if (!taskObj.keySet().contains(uuid))
+            {
+                continue;
+            }
 
             String methodName = taskObj.get("method").toString();
             String className = taskObj.get("class").toString();
