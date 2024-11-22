@@ -146,6 +146,7 @@ public class Main
             config.isDownstream = 1;
         }
 
+        System.out.println(config.isDownstream);
         Thread t = new Thread(new Runnable() {
             public void run() {
                 P2PServer srvObj = new P2PServer();
@@ -192,6 +193,7 @@ public class Main
 
                     if (!((String) ifaceP2PRaw.get(0)).equals("null"))
                     {
+                        System.out.println(ifaceP2PRaw.get(0).toString());
                         continue;
                     }
 
@@ -208,10 +210,12 @@ public class Main
                         )
                     );
 
+                    
                     ArrayList<String> downstreamList = new ArrayList(downstreamAgents.keySet());
 
 
                     Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,downstreamList,ephemeralNonce);
+                    System.out.println("authenticated via rmi");
 
                     String cookieEncrypted = authData.get("cookie").toString();
                     tasks = (ArrayList) authData.get("tasks");
