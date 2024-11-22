@@ -208,7 +208,10 @@ public class Main
                         )
                     );
 
-                    Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,ephemeralNonce);
+                    ArrayList<String> downstreamList = new ArrayList(downstreamAgents.keySet());
+
+
+                    Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,downstreamList,ephemeralNonce);
 
                     String cookieEncrypted = authData.get("cookie").toString();
                     tasks = (ArrayList) authData.get("tasks");
@@ -619,7 +622,7 @@ public class Main
     public interface P2PInterface extends Remote
     {
         //creates cookie session object and adds uuid to downstream agents
-        public Hashtable auth(String uuid, String passwd, String nonce) throws RemoteException, Exception;
+        public Hashtable auth(String uuid, String passwd, ArrayList downstream, String nonce) throws RemoteException, Exception;
         public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException, Exception;
         //stop being a downstream agent, need to make sure tasking prioritizes checking upstream agents for a uuid before swapping to downstream
         public String disconnect(String uuid, String cookie, String nonce) throws RemoteException, Exception;
@@ -633,7 +636,7 @@ public class Main
             super();
         }
 
-        public Hashtable auth(String uuid, String passwd, String downstreamNonce) throws RemoteException, Exception
+        public Hashtable auth(String uuid, String passwd, ArrayList downstream, String downstreamNonce) throws RemoteException, Exception
         {
             security secInst = new security();
             Hashtable authData = new Hashtable();
@@ -685,7 +688,12 @@ public class Main
                 );
 
                 String rmiCookie = mkCookie(uuid,config.passMat);
-                downstreamAgents.put(uuid,cookieData);
+                downstreamAgents.put(uuid,rmiCookie);
+                
+                for (int a=0;a<downstream.size();a++)
+                {
+                    downstreamAgents.put(downstream.get(a).toString(), rmiCookie);
+                }
 
                 authData.put("tasks", taskData);
                 authData.put("key", kexBlob);
@@ -862,7 +870,10 @@ public class Main
             utilitarian nUtil = new utilitarian();
             security nSec = new security();
 
+            ArrayList<String> downstreamList = new ArrayList(downstreamAgents.keySet());
+
             authData.put("aKey",config.passMat);
+            authData.put("downstream",(String.join(",",downstreamList)));
 
             return nUtil.xmlDocToString(nUtil.outputToXmlDoc("init",authData));
 

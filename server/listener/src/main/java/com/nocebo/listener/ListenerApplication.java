@@ -40,6 +40,7 @@ import java.util.Base64;
 import java.util.Random;
 import java.util.Enumeration;
 import java.util.Set;
+import java.util.Arrays;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -113,6 +114,8 @@ public class ListenerApplication {
 				return "nah";	
 			}
 
+			ArrayList downstreamData = new ArrayList<String>(Arrays.asList(xmlParsed.get("downstream").toString().split(",")));
+
 		
 			sessionData.cookie = napi.mkCookie(idCookie, epc.passwd);
 			sessionData.lastSeen = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
@@ -131,6 +134,7 @@ public class ListenerApplication {
 				)
 			);
 
+			sessionData.downstream = downstreamData;
 			sessionData.nonce = newNonce;
 			sessionData.tasks = new ArrayList();
 			epc.sessionTable.put(idCookie,sessionData);
