@@ -617,8 +617,7 @@ public class Main
             Registry nRegistry = LocateRegistry.createRegistry(config.upstreamPort);
 
             P2PInterface srvObj = new P2PSrvImpl();
-
-            Naming.bind(config.upstreamSvc, (Remote) srvObj);
+            nRegistry.rebind(config.upstreamSvc, (Remote) srvObj);
         }
     }
 
