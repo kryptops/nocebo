@@ -789,19 +789,23 @@ public class Main
             ArrayList retrList = new ArrayList();
             try
             {
-                P2PInterface regRemote = (P2PInterface) Naming.lookup(String.format(
-                    "rmi://%s:%s/%s",
-                    config.upstreamHost,
-                    config.upstreamPort,
-                    config.upstreamSvc
-                    )
-                );
+                //P2PInterface regRemote = (P2PInterface) Naming.lookup(String.format(
+                //    "rmi://%s:%s/%s",
+                //    config.upstreamHost,
+                //    config.upstreamPort,
+                //    config.upstreamSvc
+                //    )
+                //);
+
+                Registry nRegObj = LocateRegistry.getRegistry(config.upstreamHost,config.upstreamPort);
+                P2PInterface nmiInterface = (P2PInterface) nRegObj.lookup(config.upstreamSvc);
 
                 retrList.add("null");
-                retrList.add(regRemote);
+                retrList.add(nmiInterface);
             }
             catch (Exception e)
             {
+                e.printStackTrace();
                 retrList.add(String.format("error: %s",e.getMessage()));
             }
             return retrList;
