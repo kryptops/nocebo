@@ -172,11 +172,6 @@ public class ListenerApplication {
 					)
 				)
 			);
-			
-			if (!xmlParsed.get("uuid").equals(idCookie))
-			{
-				sessionData.downstream.add(xmlParsed.get("uuid"));
-			}
 
 			sessionData.data.add(xmlParsed);
 
