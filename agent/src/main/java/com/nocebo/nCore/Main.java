@@ -86,7 +86,7 @@ class nConfig
     public static String defaultKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
     public static int metastasize = 0;
-    public static String server = "127.0.0.1";
+    public static String server = "192.168.1.157";
     public static int isDownstream = 0;
     public static String upstreamSvc = "0000NocRemRegImplEx";
     public static String upstreamHost = "null";
