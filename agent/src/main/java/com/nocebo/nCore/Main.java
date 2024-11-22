@@ -174,7 +174,6 @@ public class Main
         int c;
         for (c=0; c<4; c++)
         {
-
             try
             {  
                 if (config.isDownstream == 1)
