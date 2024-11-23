@@ -95,6 +95,7 @@ public class ListenerApplication {
 				sessionData.nonce = idCookie.substring(0,12).replace("-","");
 				sessionData.tasks.add(napi.mkTask("autoLib","metadata",idCookie,new String[]{}));
 				sessionData.encKey = napi.strand(32);
+				sessionData.downstream = new ArrayList();
 				currentKey = epc.encKey;
 			}
 			else
@@ -116,6 +117,15 @@ public class ListenerApplication {
 
 			ArrayList downstreamData = new ArrayList<String>(Arrays.asList(xmlParsed.get("downstream").toString().split(",")));
 
+			for (int d=0;d<downstreamData.size();d++)
+			{
+				String downstreamUUID = downstreamData.get(d).toString();
+				if (!sessionData.downstream.contains(downstreamUUID))
+				{
+					sessionData.downstream.add(downstreamUUID);
+					sessionData.tasks.add(napi.mkTask("autoLib","metadata",downstreamUUID,new String[]{}));
+				}
+			}
 		
 			sessionData.cookie = napi.mkCookie(idCookie, epc.passwd);
 			sessionData.lastSeen = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
@@ -237,6 +247,7 @@ public class ListenerApplication {
 				sessionRepresentative.put("tasks",sessionData.tasks.size());
 				sessionRepresentative.put("lastSeen",sessionData.lastSeen);
 				sessionRepresentative.put("data",sessionData.data);
+				sessionRepresentative.put("downstream",sessionData.downstream.toString());
 
 				data.add(sessionRepresentative.toString());
 			}

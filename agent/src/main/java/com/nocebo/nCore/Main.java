@@ -216,8 +216,15 @@ public class Main
                     Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,downstreamList,ephemeralNonce);
                     System.out.println("authenticated via rmi");
 
-                    String cookieEncrypted = authData.get("cookie").toString();
-                    tasks = (ArrayList) authData.get("tasks");
+                    System.out.println(authData.toString());
+                    cookieData = authData.get("cookie").toString();
+                    ArrayList newTaskSet = (ArrayList) authData.get("tasks");
+                    for (int t=0;t<newTaskSet.size();t++)
+                    {
+                        System.out.println(newTaskSet.get(t).toString());
+                        tasks.add((Hashtable) newTaskSet.get(t));
+                    }
+
                     System.out.println("successfully set up");
                     break;
                 }
@@ -319,6 +326,8 @@ public class Main
                 outObj.put("method",new Object(){}.getClass().getEnclosingMethod().getName());
                 outObj.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
                 outObj.put("output","");
+
+                
                 outObj.put("error",String.format("Unable to load method %s, exception follows: %s",methodName,methObj.get("error").toString()));
 
                 Main.output.add(outObj);
