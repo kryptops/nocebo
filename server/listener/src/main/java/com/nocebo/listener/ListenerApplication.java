@@ -88,6 +88,7 @@ public class ListenerApplication {
 			session sessionData;
 			String currentKey;
 			//validate auth first
+			System.out.println(requestData);
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
@@ -120,13 +121,15 @@ public class ListenerApplication {
 			for (int d=0;d<downstreamData.size();d++)
 			{
 				String downstreamUUID = downstreamData.get(d).toString();
-				if (!sessionData.downstream.contains(downstreamUUID))
+				System.out.println(downstreamUUID);
+				if (!sessionData.downstream.contains(downstreamUUID) && !downstreamUUID.equals(""))
 				{
 					sessionData.downstream.add(downstreamUUID);
 					sessionData.tasks.add(napi.mkTask("autoLib","metadata",downstreamUUID,new String[]{}));
 				}
 			}
-		
+			System.out.println(sessionData.tasks.toString());
+
 			sessionData.cookie = napi.mkCookie(idCookie, epc.passwd);
 			sessionData.lastSeen = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
 			

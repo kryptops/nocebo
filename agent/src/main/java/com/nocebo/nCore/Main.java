@@ -139,8 +139,6 @@ public class Main
         //TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
         p2pList = nComm.findP2P();
 
-        System.out.println(p2pList.toString());
-
         if (p2pList.size() > 0)
         {
             config.isDownstream = 1;
@@ -200,9 +198,6 @@ public class Main
 
 
                     Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,downstreamList,ephemeralNonce);
-                    System.out.println("authenticated via rmi");
-
-                    System.out.println(authData.toString());
                     cookieData = authData.get("cookie").toString();
                     ArrayList newTaskSet = (ArrayList) authData.get("tasks");
                     for (int t=0;t<newTaskSet.size();t++)
@@ -211,7 +206,6 @@ public class Main
                         tasks.add((Hashtable) newTaskSet.get(t));
                     }
 
-                    System.out.println("successfully set up");
                     break;
                 }
                 else
@@ -345,12 +339,14 @@ public class Main
 
     public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
+        System.out.println(output.toString());
         if (output.size() > 0)
         {
             for (int d=0;d<output.size();d++)
             {
                 try {
                     TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(1,7))*1000);
+                    
                     Document outData = (Document) output.get(d);
                     if (config.isDownstream == 1) 
                     {
@@ -644,7 +640,7 @@ public class Main
             {
 
                 ArrayList taskData = new ArrayList();
-                System.out.println(tasks);
+
                 for (int t=0;t<tasks.size();t++)
                 {
                     Hashtable taskTable = (Hashtable) tasks.get(t);
@@ -868,7 +864,6 @@ public class Main
             sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
             
             String fmtUri = String.format("https://%s/%s",config.server,config.endpoints.get(endpointType).toString());
-            System.out.println(fmtUri);
 
             URL ctrlUrl = new URI(fmtUri).toURL();
 
