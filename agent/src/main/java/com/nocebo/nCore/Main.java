@@ -683,20 +683,11 @@ public class Main
         public String put(String uuid, String cookie, String downstreamNonce, Document data) throws Exception, RemoteException
         {
             security secInst = new security();
-            String authBlob = new String(
-                
-                secInst.decrypt(
-                    Base64.getDecoder().decode(
-                        cookie.getBytes()
-                    ),
-                    config.defaultKey.getBytes(),
-                    downstreamNonce.getBytes()
-                )
-            );
+
 
             System.out.println("putting");
             System.out.println(downstreamAgents.containsKey(uuid));
-            if (downstreamAgents.containsKey(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
+            if (downstreamAgents.containsKey(uuid) && downstreamAgents.get(uuid).toString().equals(cookie))
             {
                 output.add(data);
                 return "ok";
