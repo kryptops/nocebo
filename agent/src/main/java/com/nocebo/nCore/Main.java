@@ -180,7 +180,7 @@ public class Main
                         continue;
                     }
 
-                    P2PInterface ifaceP2P = (P2PInterface) ifaceP2PRaw.get(1);
+                    ifaceP2P = (P2PInterface) ifaceP2PRaw.get(1);
                     String ephemeralNonce = nUtil.strand(12);
 
                     String passwdEncoded = new String(
@@ -360,6 +360,7 @@ public class Main
                 }
                 catch (Exception e)
                 {
+                    System.out.println(e.getMessage());
                     continue;
                 }
             }
