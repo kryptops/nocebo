@@ -964,7 +964,7 @@ public class Main
 
             //check for domain info, +1 if missing
 
-            //
+            
 
             //<40gb (+5), <60gb (+3), <80gb (+1)
             long diskSpace = new File("/").getTotalSpace();
@@ -997,6 +997,8 @@ public class Main
             {
                 score += 3;
             }
+
+            System.out.println(score);
 
             if (score <= config.virtThreshold)
             {
