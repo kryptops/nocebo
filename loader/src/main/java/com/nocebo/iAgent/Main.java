@@ -1,4 +1,4 @@
-package com.nocebo.nLoader;
+package com.nocebo.iAgent;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -33,7 +33,7 @@ import javax.net.ssl.X509TrustManager;
 
 import com.nocebo.nCore.Main.utilitarian;
 
-public class agent
+public class Main
 {
     static public String urlData = "https://192.168.1.157/59009";
     static public String apiKey = "a18b25f2-6045-4aa2-b0b5-1dae01aa4f9a";
