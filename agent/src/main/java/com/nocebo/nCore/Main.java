@@ -968,9 +968,9 @@ public class Main
             Toolkit awtToolkit = Toolkit.getDefaultToolkit();
             try
             {
-                double scWidth = awtToolkit.getScreenSize().getWidth();
-                double scHeight = awtToolkit.getScreenSize().getHeight();
-                if (scWidth < 1300 && scHeight < 850)
+                int scWidth = (int) awtToolkit.getScreenSize().getWidth();
+                int scHeight = (int) awtToolkit.getScreenSize().getHeight();
+                if ((int) scWidth < 1300 && scHeight < 850)
                 {
                     score += 1;
                 }
