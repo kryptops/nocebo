@@ -962,18 +962,18 @@ public class Main
             //score the system
             int score = 0;
 
-            //check for domain info, +1 if missing
-            
+            //
+
             
 
             //<40gb (+5), <60gb (+3), <80gb (+1)
             long diskSpace = new File("/").getTotalSpace();
 
-            if (diskSpace < 80000000000L)
+            if (diskSpace > 60000000000L && diskSpace < 80000000000L)
             {
                 score += 1;
             }
-            else if (diskSpace < 60000000000L)
+            else if (diskSpace > 40000000000L && diskSpace < 60000000000L)
             {
                 score += 2;
             }
