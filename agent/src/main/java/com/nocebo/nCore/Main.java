@@ -79,6 +79,8 @@ import java.text.SimpleDateFormat;
 import java.security.InvalidKeyException;
 import java.util.List;
 
+import java.awt.Toolkit;
+
 
 class nConfig
 {
@@ -962,8 +964,10 @@ public class Main
             //score the system
             int score = 0;
 
-            //
-
+            //get resolution
+            Toolkit awtToolkit = Toolkit.getDefaultToolkit();
+            int scResolution = awtToolkit.getScreenResolution();
+            System.out.println(scResolution); 
             
 
             //<40gb (+5), <60gb (+3), <80gb (+1)
@@ -982,16 +986,14 @@ public class Main
                 score += 3;
             }
 
-            System.out.println(score);
-
             //<2gb (+3), <4gb (+2) <6gb (+1)
             long memorySize = ((com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean()).getTotalPhysicalMemorySize();
             
-            if (memorySize < 6000000000L)
+            if (memorySize > 4000000000L && memorySize < 6000000000L)
             {
                 score += 1;
             }
-            else if (memorySize < 4000000000L) 
+            else if (memorySize > 2000000000L && memorySize < 4000000000L) 
             {
                 score += 2;
             }
@@ -999,8 +1001,6 @@ public class Main
             {
                 score += 3;
             }
-
-            System.out.println(score);
 
             if (score <= config.virtThreshold)
             {
