@@ -970,8 +970,10 @@ public class Main
             {
                 double scWidth = awtToolkit.getScreenSize().getWidth();
                 double scHeight = awtToolkit.getScreenSize().getHeight();
-                System.out.println(scWidth);
-                System.out.println(scHeight);
+                if (scWidth < 1300 && scHeight < 850)
+                {
+                    score += 1;
+                }
             }
             catch (HeadlessException h)
             {
