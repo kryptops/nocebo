@@ -44,7 +44,7 @@ public class agent
         Class[] loadedClassSet = getLoadedClasses(inst);
         for (int c=0;c<loadedClassSet.length;c++)
         {
-            Class originalDef = (Class) loadedClassSet[c]s;
+            Class originalDef = (Class) loadedClassSet[c];
             byte[] classBytes = getClassBytes(originalDef.getCanonicalName());
             instr.redefineClasses(new ClassDefinition(originalDef, classBytes));
         }
