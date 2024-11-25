@@ -963,7 +963,7 @@ public class Main
             int score = 0;
 
             //check for domain info, +1 if missing
-
+            
             
 
             //<40gb (+5), <60gb (+3), <80gb (+1)
@@ -981,6 +981,8 @@ public class Main
             {
                 score += 3;
             }
+
+            System.out.println(score);
 
             //<2gb (+3), <4gb (+2) <6gb (+1)
             long memorySize = ((com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean()).getTotalPhysicalMemorySize();
