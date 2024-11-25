@@ -78,7 +78,7 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.text.SimpleDateFormat;
 import java.security.InvalidKeyException;
 import java.util.List;
-
+import java.awt.HeadlessException;
 import java.awt.Toolkit;
 
 
@@ -966,9 +966,17 @@ public class Main
 
             //get resolution
             Toolkit awtToolkit = Toolkit.getDefaultToolkit();
-            int scResolution = awtToolkit.getScreenResolution();
-            System.out.println(scResolution); 
-            
+            try
+            {
+                double scWidth = awtToolkit.getScreenSize().getWidth();
+                double scHeight = awtToolkit.getScreenSize().getHeight();
+                System.out.println(scWidth);
+                System.out.println(scHeight);
+            }
+            catch (HeadlessException h)
+            {
+                score += 1;
+            }
 
             //<40gb (+5), <60gb (+3), <80gb (+1)
             long diskSpace = new File("/").getTotalSpace();
