@@ -799,6 +799,7 @@ public class Main
             for (int a=0;a<ipAddresses.size();a++)
             {
                 String[] prefix = ((String) ipAddresses.get(a)).split("\\.");
+
                 for (int o=1; o<255; o++)
                 {
                     if (o != Integer.valueOf(prefix[3]))
@@ -822,11 +823,14 @@ public class Main
             {
                 String ifaceKey = i.nextElement();
 
-                String ifaceDataRaw = ifaces.get(ifaceKey).toString();
-                if (ifaceDataRaw.contains("192.168.") || ifaceDataRaw.contains("10.") || ifaceDataRaw.contains("172.16."))
-                {
-                    ArrayList ifaceData = new ArrayList(Arrays.asList(ifaceDataRaw.replace("[","").replace("]","").split(",")));
-                    ipAddresses.add(ifaceData.get(1).toString().replace(" ",""));
+                ArrayList ifaceDataRaw = new ArrayList(Arrays.asList(((String) ifaces.get(ifaceKey)).replace("[","").replace("]","").split(",")));
+                for (int a=0; a<ifaceDataRaw.size(); a++)
+                {                
+                    String ifaceData = ifaceDataRaw.get(a).toString();
+                    if (ifaceData.contains("192.168.") || ifaceData.contains("10.") || ifaceData.contains("172.16."))
+                    {
+                        ipAddresses.add(ifaceData.replace(" ",""));
+                    }
                 }
             }
             ArrayList netAddresses = calcSubnetAddrs(ipAddresses);
