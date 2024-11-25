@@ -24,8 +24,8 @@ public class Main {
     //replaceable
     static public String jarPath = "";
     static public String agentPath = "";
-    static public String agentKey = "";
-    static public String agentNonce = "";
+    static public String agentKey = "q8uf6,p2m1@31395aO+g+9592_4891lS";
+    static public String agentNonce = "H8m=6#v?";
 
     public static void main(String[] args)
     {
