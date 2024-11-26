@@ -103,7 +103,7 @@ class nConfig
     };
 }
 
-public class Main
+public class iAgent
 {
     //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java -d ..\server\fileroot
     static public String cookieData = "null";
