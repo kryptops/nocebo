@@ -118,6 +118,7 @@ class iAgent
 
     public static void init() throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
+        System.out.println("valhalla");
         //add execution delay of 10 minutes +/- to 1st stage
         sessUUID = UUID.randomUUID().toString();
         nonce = sessUUID.substring(0,12).replace("-","");

