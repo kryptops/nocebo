@@ -1032,10 +1032,10 @@ class iAgent
         }
     }
 
-    private static class security
+    static class security
     {
         //replicates my lycanthropy aesgcm
-        private byte[] encrypt(byte[] plaintext, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+        public byte[] encrypt(byte[] plaintext, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
             SecretKey key = initKey(keyData);
             Cipher cipher = initCipher();
@@ -1045,7 +1045,7 @@ class iAgent
             return cipher.doFinal(plaintext);
         }
 
-        private byte[] decrypt(byte[] encrypted, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+        public byte[] decrypt(byte[] encrypted, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
         {
             SecretKey key = initKey(keyData);
             Cipher cipher = initCipher();
