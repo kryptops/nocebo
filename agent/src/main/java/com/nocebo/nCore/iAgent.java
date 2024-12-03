@@ -118,7 +118,7 @@ class iAgent
     static public P2PInterface ifaceP2P = null;
     static private security secInst = new security();
 
-    public static String init() throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static void init() throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         System.out.println("valhalla");
         //add execution delay of 10 minutes +/- to 1st stage
@@ -147,7 +147,6 @@ class iAgent
         srvObj.rmiServer();
 
         keepalive();
-        return "oops";
     }
 
     public static void keepalive() throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException

