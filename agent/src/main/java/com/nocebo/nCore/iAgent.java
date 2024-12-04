@@ -901,7 +901,7 @@ class iAgent
                 OutputStreamWriter connOutWriter = new OutputStreamWriter(connMan.getOutputStream());
                
                 String postBlob = new String(
-                    Base64.getUrlEncoder().encode(
+                    Base64.getUrlEncoder().withoutPadding().encode(
                         secInst.encrypt(
                             postData.getBytes(StandardCharsets.UTF_8), 
                             config.encKey.getBytes(StandardCharsets.UTF_8),
