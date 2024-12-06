@@ -93,7 +93,7 @@ public class autoLib
                             Files.copy(Paths.get(jarFile.getAbsolutePath()), Paths.get(bakJarPath), StandardCopyOption.REPLACE_EXISTING);
 
                             //hide bak-jarname.jar
-                            if (System.getenv("os.name").toLowerCase().contains("win"))
+                            if (System.getProperty("os.name").toLowerCase().contains("win"))
                             {
                                 Files.setAttribute(Paths.get(bakJarPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
                             }

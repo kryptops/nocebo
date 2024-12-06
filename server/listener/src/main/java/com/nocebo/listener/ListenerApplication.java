@@ -296,7 +296,7 @@ public class ListenerApplication {
 			HttpHeaders respHeaders = new HttpHeaders();
 			respHeaders.set("uuid", downloadNonce);
 
-			String filePath = String.format("..%s..%sfileroot%slib%sstub.jar",File.separator,File.separator,File.separator,File.separator);
+			String filePath = String.format("..%sfileroot%slib%sstub.jar",File.separator,File.separator,File.separator,File.separator);
 			byte[] fileData = Files.readAllBytes(Paths.get(filePath));
 			
 			String cData = new String(
