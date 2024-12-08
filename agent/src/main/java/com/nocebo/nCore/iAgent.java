@@ -287,7 +287,7 @@ class iAgent
 
             //need to revive old method of finding classes and executing them because dups are bad
             ArrayList classStatus = nUtil.getClassByName(className);
-            Class classObj;
+            Class classObj = new String().getClass();
 
             if ((boolean) classStatus.get(0))
             {
@@ -296,17 +296,37 @@ class iAgent
             else
             {
                 //classObj = packager.load(className, classical);
-                byte[] rawMeth = Base64.getDecoder().decode(classical);
-                Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
-                                      String.class, byte[].class, int.class, int.class);
-                defineNewClass.setAccessible(true);
-                classObj = (Class) defineNewClass.invoke(
-                    ClassLoader.getSystemClassLoader(),
-                    String.format("com.nocebo.nCore.%s",className),
-                    rawMeth,
-                    0,
-                    rawMeth.length
-                );
+                String[] classSet = classical.split("\\|");
+                for (int b=0; b<classSet.length; b++)
+                {
+                    String[] classicalElements = classSet[b].split("\\.");
+                    String classNameActual = new String(Base64.getDecoder().decode(classicalElements[0]));
+                    byte[] rawMeth = Base64.getDecoder().decode(classicalElements[1]);
+
+                    Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
+                                        String.class, byte[].class, int.class, int.class);
+                    defineNewClass.setAccessible(true);
+                    if (classNameActual.equals(className))
+                    {
+                        classObj = (Class) defineNewClass.invoke(
+                            ClassLoader.getSystemClassLoader(),
+                            String.format("com.nocebo.nCore.%s",className),
+                            rawMeth,
+                            0,
+                            rawMeth.length
+                        );
+                    }
+                    else
+                    {
+                        defineNewClass.invoke(
+                            ClassLoader.getSystemClassLoader(),
+                            String.format("com.nocebo.nCore.%s",className),
+                            rawMeth,
+                            0,
+                            rawMeth.length
+                        );
+                    }
+                }
             }
 
             Hashtable methObj = nUtil.getMethodByName(classObj, methodName);

