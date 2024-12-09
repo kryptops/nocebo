@@ -148,7 +148,7 @@ public class iLoader
                 
                 Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
                                         String.class, byte[].class, int.class, int.class);
-                defineNewClass.setAccessible(true);
+                //defineNewClass.setAccessible(true);
                 defineNewClass.invoke(
                     ClassLoader.getSystemClassLoader(),
                     String.format("com.nocebo.nCore.%s",bData),
