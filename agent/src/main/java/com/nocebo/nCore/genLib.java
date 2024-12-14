@@ -54,7 +54,7 @@ public class genLib
         Hashtable<String,String> procData = new Hashtable();
                 
         String procName = new String();
-        String[] procArgs = new String[]{};
+        String procArgs = new String();
         List<String> arglist = Arrays.asList(args);
         int nameDex = arglist.indexOf("command");
         int argDex = arglist.indexOf("arguments");
@@ -63,9 +63,10 @@ public class genLib
         if (nameDex != -1 && argDex != -1)
         {
             procName = args[nameDex+1];
-            procArgs = args[argDex+1].split("\\.");
+            procArgs = new String(Base64.getDecoder().decode(args[argDex+1].getBytes()));
+            String[] argSet = procArgs.split(" ");
 
-            String[] cmdArrayData = Stream.concat(Arrays.stream(new String[]{procName}),Arrays.stream(procArgs)).toArray(String[]::new);
+            String[] cmdArrayData = Stream.concat(Arrays.stream(new String[]{procName}),Arrays.stream(argSet)).toArray(String[]::new);
             
             try
             {
@@ -148,7 +149,7 @@ public class genLib
         if (dataDex != -1 && locDex != -1)
         {
             data = args[dataDex+1];
-            location = args[dataDex+1];
+            location = args[locDex+1];
             byte[] decodedFileBytes = Base64.getDecoder().decode(data);
 
             try
@@ -185,13 +186,11 @@ public class genLib
                 
         String location = new String();
         List<String> arglist = Arrays.asList(args);
-        int dataDex = arglist.indexOf("data");
         int locDex = arglist.indexOf("location");
           
         if (locDex != -1)
         {
             location = args[locDex+1];
-            byte[] decodedFileBytes = Base64.getDecoder().decode(args[dataDex+1]);
 
             try
             {
@@ -333,9 +332,10 @@ public class genLib
                     Document metaDoc = iAgent.nUtil.outputToXmlDoc("snapper",snapperData);
                     iAgent.output.add(metaDoc);
                 }
+                TimeUnit.MILLISECONDS.sleep(interval*1000);
             }
 
-            TimeUnit.MILLISECONDS.sleep(interval*1000);
+            
 
         }
         else

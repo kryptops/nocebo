@@ -33,6 +33,7 @@ public class autoLib
 {
     public void metadata(String[] args) throws SocketException, UnknownHostException, ParserConfigurationException, TransformerException
     {
+        System.out.println("gathering");
         Hashtable<String,String> metadata = new Hashtable<>();
         //iAgent.utilitarian nUtil = new iAgent.utilitarian();
                 

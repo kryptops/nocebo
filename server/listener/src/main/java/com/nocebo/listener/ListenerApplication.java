@@ -307,7 +307,7 @@ public class ListenerApplication {
 
 			ArrayList<session> sessionData = new ArrayList();
 			boolean foundDownstream = false;
-			//put authenticator in front
+
 			if (!epc.sessionTable.keySet().contains(requestData.get("uuid")))
 			{
 				Enumeration<String> k = epc.sessionTable.keys();
@@ -354,6 +354,8 @@ public class ListenerApplication {
 		String log(@RequestHeader("nClient-key") String clientApiKey)
 		{
 
+
+				
 			if (!clientApiKey.equals(epc.apiPass))
 			{
 				return "Fatal Error: Incorrect API key";
@@ -361,14 +363,17 @@ public class ListenerApplication {
 			//put authenticator in front
 			ArrayList data = new ArrayList();
 
-			for (int i=0; i<epc.sessionTable.size(); i++)
+			Enumeration<String> k = epc.sessionTable.keys();
+			while (k.hasMoreElements())
 			{
-				session sessionData = epc.sessionTable.get(i);
+				String sessionKey = k.nextElement();
+				session sessionData = (session) epc.sessionTable.get(sessionKey);
 				Hashtable sessionRepresentative = new Hashtable();
 
 				sessionRepresentative.put("tasks",sessionData.tasks.size());
 				sessionRepresentative.put("lastSeen",sessionData.lastSeen);
 				sessionRepresentative.put("data",sessionData.data);
+				sessionRepresentative.put("uuid",sessionKey);
 				sessionRepresentative.put("downstream",sessionData.downstream.toString());
 
 				data.add(sessionRepresentative.toString());

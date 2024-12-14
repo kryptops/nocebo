@@ -20,12 +20,20 @@ function httpsHandler($httpRequestMethod, $httpHeaderDict, $httpUrl, $httpPostDa
 {
     if ($httpRequestMethod -eq "POST")
     {
-        Invoke-WebRequest -headers $httpHeaderDict -uri $httpUrl -Method $httpRequestMethod -body $httpPostData
+        return Invoke-WebRequest -headers $httpHeaderDict -uri $httpUrl -Method $httpRequestMethod -body $httpPostData
     }
     else
     {
-        Invoke-WebRequest -headers $httpHeaderDict -uri $httpUrl -Method $httpRequestMethod
+        return Invoke-WebRequest -headers $httpHeaderDict -uri $httpUrl -Method $httpRequestMethod
     }
+}
+
+function modLogHelper($apiAddr)
+{
+    $continueLoop = $true
+        $httpOut = httpsHandler "GET" @{"nClient-key"=$plaintextNApiKey} "https://$apiAddr/log"
+        $httpOut.content
+
 }
 
 
@@ -44,6 +52,9 @@ function mainLoop()
                                                 
 "@
 
+    $output
+    write-host -ForegroundColor yellow -NoNewline "Enter the ip of your nocebo api server:"
+    $nApiAddr = read-host
     write-host -ForegroundColor yellow -NoNewline "Enter your nocebo api key:"
     $nApiKey = read-host -AsSecureString
     $plaintextNApiKey = [Net.NetworkCredential]::new('', $nApiKey).Password
@@ -54,6 +65,7 @@ function mainLoop()
     write-host -ForegroundColor yellow "[ Type the name of a module followed by 'options' to view its options ]"
     write-host -ForegroundColor yellow "[       Type 'modules' to view a list of loaded module handlers       ]"
     write-host -ForegroundColor yellow "[         Modules can be executed by typing the module's name         ]"
+    write-host -ForegroundColor yellow "[          Module output can be recovered by typing 'modlog'          ]"
     write-host ""
     
     $continueLoop = $true
@@ -65,22 +77,25 @@ function mainLoop()
     write-host ""
 
     # Check if the user wants to quit
-    if ("exit" -contains $userInput.ToLower() -or "quit" -contains $userInput.ToLower()) 
+    if ("exit" -match $userInput.ToLower() -or "quit" -match $userInput.ToLower()) 
     {
         $continueLoop = $false
     }
     elseif ($userInput.ToLower() -eq "modules")
     {
-        gcm ("*autolib*")
         $loadedMods = (gcm "*nocebo-ui-handler").name
         write-host -ForegroundColor Yellow  ">>> The following modules have candidate client handlers"
     
         foreach ($m in $loadedMods)
         {
             $v = $($m.split("-")[0..1]) -join "-"
-            write-host -ForegroundColor Gray "    : $v"
+            write-host -ForegroundColor Yellow "    : $v"
         }
         write-host ""
+    }
+    elseif ($userInput.ToLower() -eq "modlog")
+    {
+        modLogHelper $nApiAddr
     }
     elseif ($userInput.ToLower() -eq "")
     {
@@ -93,15 +108,19 @@ function mainLoop()
         {
             write-host -ForegroundColor yellow ">>> Type 'back' to return to the main console"
             write-host -ForegroundColor yellow ">>> Type 'task' to send a task for this module to the server"
+            write-host -ForegroundColor yellow ">>> Type '<param-name>='<param value>' to set a value for a given parameter"
             
             $methodAndArgs = & "$($userinput.ToLower())-nocebo-ui-handler"
-            try
+            if ($methodAndArgs["uuid"] -ne "retr")
             {
-                httpsHandler "POST" @{"nClientKey"=$plaintextNApiKey} $methodAndArgs["params"]
-            }
-            catch
-            {
-                write-host -ForegroundColor yellow "!!! Failed to send request to server, most likely due to authentication."
+                try
+                {
+                    httpsHandler "POST" @{"nClient-key"=$plaintextNApiKey} "https://$nApiAddr/tasking" $methodAndArgs
+                }
+                catch
+                {
+                    write-host -ForegroundColor yellow "!!! Failed to send request to server, most likely due to authentication."
+                }
             }
         }
         else
