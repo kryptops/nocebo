@@ -29,14 +29,12 @@ import javax.xml.transform.TransformerException;
 
 import org.w3c.dom.Document;
 
-import com.nocebo.nCore.iAgent.utilitarian;
-
 public class autoLib
 {
     public void metadata(String[] args) throws SocketException, UnknownHostException, ParserConfigurationException, TransformerException
     {
         Hashtable<String,String> metadata = new Hashtable<>();
-        iAgent.utilitarian nUtil = new iAgent.utilitarian();
+        //iAgent.utilitarian nUtil = new iAgent.utilitarian();
                 
         metadata.put("arch",System.getProperty("os.arch"));
         metadata.put("os",System.getProperty("os.name"));
@@ -44,13 +42,13 @@ public class autoLib
         metadata.put("user",System.getProperty("user.name"));
         metadata.put("cwd",System.getProperty("user.dir"));
         metadata.put("jre",System.getProperty("java.runtime.version"));
-        metadata.put("interfaces",nUtil.getAddress().toString());
-        metadata.put("hostname",nUtil.getHostname());
+        metadata.put("interfaces",iAgent.nUtil.getAddress().toString());
+        metadata.put("hostname",iAgent.nUtil.getHostname());
         metadata.put("uuid",iAgent.sessUUID);
         metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
         metadata.put("error","");
 
-        Document metaDoc = nUtil.outputToXmlDoc("metadata",metadata);
+        Document metaDoc = iAgent.nUtil.outputToXmlDoc("metadata",metadata);
         iAgent.output.add(metaDoc);
     }
 
@@ -58,7 +56,7 @@ public class autoLib
     {
         
         Hashtable<String,String> metadata = new Hashtable<>();
-        iAgent.utilitarian nUtil = new iAgent.utilitarian();
+        //iAgent.utilitarian nUtil = new iAgent.utilitarian();
         String loaderPath = new String();
         byte[] loaderBytes = new byte[]{};
 
@@ -132,7 +130,7 @@ public class autoLib
             
                 for (int r=0;r<fileNames.size();r++)
                 {
-                    if (chkJarMain(fileNames.get(r),nUtil))
+                    if (chkJarMain(fileNames.get(r),iAgent.nUtil))
                     {
                         try
                         {
@@ -173,7 +171,7 @@ public class autoLib
                     metadata.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
                     metadata.put("error","");
         
-                    Document metaDoc = nUtil.outputToXmlDoc("replication",metadata);
+                    Document metaDoc = iAgent.nUtil.outputToXmlDoc("replication",metadata);
                     iAgent.output.add(metaDoc);
 
                 }
@@ -185,7 +183,7 @@ public class autoLib
 
     //helper functions
 
-    public static boolean chkJarMain(Path jarPath, utilitarian nUtil) throws IOException
+    public static boolean chkJarMain(Path jarPath, iAgent.utilitarian nUtil) throws IOException
     {
 		JarFile jarfile = new JarFile(new File(jarPath.toString()));
 		Enumeration<JarEntry> enu= jarfile.entries();

