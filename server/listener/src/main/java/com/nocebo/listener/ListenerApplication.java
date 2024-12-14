@@ -351,8 +351,13 @@ public class ListenerApplication {
 
 		@RequestMapping("/log")
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
-		String log()
+		String log(@RequestHeader("nClient-key") String clientApiKey)
 		{
+
+			if (!clientApiKey.equals(epc.apiPass))
+			{
+				return "Fatal Error: Incorrect API key";
+			}
 			//put authenticator in front
 			ArrayList data = new ArrayList();
 
