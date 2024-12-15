@@ -1043,6 +1043,7 @@ public class iAgent
     {
         public void spoliate()
         {
+            iAgent.shutdown = 1;
             Class currentClass = MethodHandles.lookup().lookupClass();
             String loaderPath = new String();
             byte[] loaderBytes = new byte[]{};
