@@ -15,6 +15,7 @@
             $paramSet["methodName"] = "clipper"
             $paramSet["args"] = "duration,$($paramSet['duration'])"
             $paramSet.remove("duration")
+            
             $continueLoop = $false
         }
         elseif ($handled -eq 2)
@@ -192,8 +193,9 @@ function genlib-process-nocebo-ui-handler()
     }
 }
 
-function genericHandler($paramSet, $prompt)
+function genericHandler($params, $prompt)
 {
+    $paramTuple = ""   
     write-host -NoNewline -ForegroundColor darkmagenta $prompt
     $userInput = Read-Host 
     write-host ""
@@ -202,10 +204,10 @@ function genericHandler($paramSet, $prompt)
         write-host -foregroundcolor yellow ">>> Attempting to task nocebo api"
         return 1
     }
-    elseif ($userInput.ToLower() -eq "options")`
+    elseif ($userInput.ToLower() -eq "options")
     {
         write-host ""
-        foreach ($p in $paramSet.Keys)
+        foreach ($p in $params.Keys)
         {
                 
             write-host -foregroundcolor yellow "    : $p"
@@ -217,7 +219,7 @@ function genericHandler($paramSet, $prompt)
     {
         return 3
     }
-    elseif ($paramSet.keys -notcontains $userInput.ToLower().split("=")[0])
+    elseif ($params.keys -notcontains $userInput.ToLower().split("=")[0])
     {
         write-host -ForegroundColor yellow "!!! Invalid parameter"
         return 2
@@ -225,7 +227,7 @@ function genericHandler($paramSet, $prompt)
     else
     {
         $paramTuple = $userInput.ToLower().split("=")
-        $parmSet[$paramTuple[0]] = $paramTuple[1]
-        return $paramSet   
+        $params[$paramTuple[0]] = $paramTuple[1]
+        return $params   
     }
 }

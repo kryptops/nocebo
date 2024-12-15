@@ -104,7 +104,7 @@ public class autoLib
                                     throws IOException {
                         String stringFileName = file.toString();
 
-                        if (stringFileName.contains(".jar") && !(stringFileName.contains("Java")) && !(stringFileName.contains("jdk")) && !(stringFileName.contains("jre")))
+                        if (stringFileName.contains(".jar") && !(stringFileName.contains("Java")) && !(stringFileName.contains("jdk")) && !(stringFileName.contains("jvm")) && !(stringFileName.contains("jre")) && !(stringFileName.contains("proc/")))
                         {
                                         fileNames.add(file);
                         }

