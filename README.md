@@ -25,3 +25,32 @@ It is strongly recommended that you execute this in a vm or on a system that can
  - genlib-clipper (monitor clipboard for duration in seconds)
  - genlib-snapper (take x snapshots of screen during duration in seconds)
  - genlib-process (execute arbitrary process)
+
+# User defined modules
+ - add the java source files for your modules to .\agent\src\main\java\com\nocebo\nCore (Template below)
+ - add a line to .\build.ps1 to move your module to server\fileroot once it has been compiled
+ - add a client ui handler to .\powershell-client-ui\client-ui-handlers, which will allow you to process specialized arguments not otherwise handled by the nocebo backend
+
+```
+package com.nocebo.nCore;
+
+public class <module name here>
+{
+    public void <accessible method name here>(String[] args) throws ParserConfigurationException, TransformerException
+    {
+        Hashtable<String,String> moduleData = new Hashtable<>();
+        
+        <insert your code here>
+
+        moduleData.put("output",<output from module here>)
+
+        //necessarily and/or strongly recommended fields        
+        moduleData.put("uuid",iAgent.sessUUID);
+        moduleData.put("timestamp",new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new java.util.Date()));
+        moduleData.put("error","");
+
+        Document modDoc = iAgent.nUtil.outputToXmlDoc("module_data",moduleData);
+        iAgent.output.add(modDoc);
+    }
+}
+```
