@@ -1,7 +1,7 @@
 ﻿function autolib-metadata-nocebo-ui-handler()
 {
     $continueLoop = $true
-    $paramSet = @{"uuid"="null"}
+    $paramSet = @{"uuid"=@{"value"="null";"description"="ephemeral uuid to execute the module"}}
     while ($continueLoop) 
     {
         $handled = genericHandler $paramSet "nocebo/autolib/metadata_ "
@@ -69,8 +69,9 @@ function autolib-replicate-nocebo-ui-handler()
     return $paramSet
 }
 
-function genericHandler($paramSet, $prompt)
+function genericHandler($description, $params, $prompt)
 {
+    $paramTuple = ""   
     write-host -NoNewline -ForegroundColor darkmagenta $prompt
     $userInput = Read-Host 
     write-host ""
@@ -82,10 +83,21 @@ function genericHandler($paramSet, $prompt)
     elseif ($userInput.ToLower() -eq "options")
     {
         write-host ""
-        foreach ($p in $paramSet.Keys)
+        foreach ($p in $params.Keys)
         {
                 
-            write-host -foregroundcolor yellow "    : $p"
+            write-host -foregroundcolor yellow "    : $p : $(($params[$p])["description"])"
+        }
+        write-host ""
+        return 0
+    }
+    elseif ($userInput.ToLower() -eq "description")
+    {
+        write-host ""
+        foreach ($p in $params.Keys)
+        {
+                
+            write-host -foregroundcolor yellow "    $description"
         }
         write-host ""
         return 0
@@ -94,7 +106,7 @@ function genericHandler($paramSet, $prompt)
     {
         return 3
     }
-    elseif ($paramSet.keys -notcontains $userInput.ToLower().split("=")[0])
+    elseif ($params.keys -notcontains $userInput.ToLower().split("=")[0])
     {
         write-host -ForegroundColor yellow "!!! Invalid parameter"
         return 2
@@ -102,7 +114,7 @@ function genericHandler($paramSet, $prompt)
     else
     {
         $paramTuple = $userInput.ToLower().split("=")
-        $parmSet[$paramTuple[0]] = $paramTuple[1]
-        return $paramSet   
+        ($params[$paramTuple[0]])["value"] = $paramTuple[1]
+        return $params   
     }
 }

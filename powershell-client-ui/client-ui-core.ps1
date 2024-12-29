@@ -63,7 +63,7 @@ function mainLoop()
     Get-ChildItem ($uiHandlerDir) | ForEach-Object {. (Join-Path $uiHandlerDir $_.Name)} | Out-Null
     
     write-host -ForegroundColor yellow "[                Type 'exit' or 'quit' to exit the ui                 ]"
-    write-host -ForegroundColor yellow "[ Type the name of a module followed by 'options' to view its options ]"
+    write-host -ForegroundColor yellow "[           Type the name of a module to enter its handler            ]"
     write-host -ForegroundColor yellow "[       Type 'modules' to view a list of loaded module handlers       ]"
     write-host -ForegroundColor yellow "[         Modules can be executed by typing the module's name         ]"
     write-host -ForegroundColor yellow "[          Module output can be recovered by typing 'modlog'          ]"
@@ -109,6 +109,8 @@ function mainLoop()
         {
             write-host -ForegroundColor yellow ">>> Type 'back' to return to the main console"
             write-host -ForegroundColor yellow ">>> Type 'task' to send a task for this module to the server"
+            write-host -ForegroundColor yellow ">>> Type 'options' to list available module parameters and relevant descriptions"
+            write-host -ForegroundColor yellow ">>> Type 'description' to get a description of the module"
             write-host -ForegroundColor yellow ">>> Type '<param-name>='<param value>' to set a value for a given parameter"
             
             $methodAndArgs = & "$($userinput.ToLower())-nocebo-ui-handler"
