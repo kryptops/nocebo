@@ -2,6 +2,8 @@
 $global:uiHandlerDir = ".\client-ui-handlers\"
 $ErrorActionPreference= 'silentlycontinue'
 
+$errorLookupTable = @{"InvalidAgentUUIDError":""}
+
 add-type @"
     using System.Net;
     using System.Security.Cryptography.X509Certificates;
@@ -28,7 +30,6 @@ function httpsHandler($httpRequestMethod, $httpHeaderDict, $httpUrl, $httpPostDa
         return Invoke-WebRequest -headers $httpHeaderDict -uri $httpUrl -Method $httpRequestMethod
     }
 }
-
 
 function mainLoop()
 {

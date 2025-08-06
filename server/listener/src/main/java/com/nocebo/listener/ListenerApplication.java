@@ -64,6 +64,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+
+import com.nocebo.listener.noceboApi.noceboApiUtil;
+
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
@@ -291,7 +294,7 @@ public class ListenerApplication {
 		{
 			if (!clientApiKey.equals(epc.apiPass))
 			{
-				return "Fatal Error: Incorrect API key";
+				return "IncorrectAPIKeyError";
 			}
 
 			ArrayList<session> sessionData = new ArrayList();
@@ -312,7 +315,7 @@ public class ListenerApplication {
 				
 				if (!foundDownstream)
 				{
-					return "Fatal Error: Specified agent session UUID not found in upstream or downstream session objects. Agent associated with session ID is most likely dead.";
+					return "InvalidAgentUUIDError";
 				}
 			}
 			else
@@ -340,15 +343,15 @@ public class ListenerApplication {
 
 		@RequestMapping("/log")
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
-		String log(@RequestHeader("nClient-key") String clientApiKey)
+		String log(@RequestHeader("nClient-key") String clientApiKey) throws TransformerException, ParserConfigurationException
 		{
 		
 			if (!clientApiKey.equals(epc.apiPass))
 			{
-				return "Fatal Error: Incorrect API key";
+				return "IncorrectAPIKeyError";
 			}
 			//put authenticator in front
-			ArrayList data = new ArrayList();
+			ArrayList<String> data = new ArrayList<String>();
 
 			Enumeration<String> k = epc.sessionTable.keys();
 			while (k.hasMoreElements())
@@ -357,16 +360,23 @@ public class ListenerApplication {
 				session sessionData = (session) epc.sessionTable.get(sessionKey);
 				Hashtable sessionRepresentative = new Hashtable();
 
-				sessionRepresentative.put("tasks",sessionData.tasks.size());
+				sessionRepresentative.put("tasks",String.valueOf(sessionData.tasks.size()));
 				sessionRepresentative.put("lastSeen",sessionData.lastSeen);
 				sessionRepresentative.put("data",sessionData.data);
 				sessionRepresentative.put("uuid",sessionKey);
 				sessionRepresentative.put("downstream",sessionData.downstream.toString());
 
-				data.add(sessionRepresentative.toString());
+				System.out.println(sessionRepresentative.toString());
+				String dataString = napi.xmlDocToString(
+					napi.hashtableToXmlDoc("modlog", sessionRepresentative)
+				);
+
+				data.add(
+					dataString
+				);
 			}
 
-			return data.toString();
+			return String.join("",data);
 		}
 
 		//@RequestMapping("/auth")
@@ -421,7 +431,6 @@ class noceboApi
 
 	static class noceboApiUtil
 	{
-
 		public Hashtable<String, byte[]> mkRespoData(String keyWord) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
 			Hashtable<String, byte[]> retrData = new Hashtable();
@@ -521,8 +530,53 @@ class noceboApi
 			);
 			return new String(Base64.getEncoder().encode(encodedHash));
 		}
+		
 
-		public Document hashtableToXmlDoc(String rootElement, Hashtable genericHashtable)
+		public Document enumElementCandidates(Element root, Enumeration<String> elemCandidates, Document doc, Hashtable genericHashtable)
+		{
+			while (elemCandidates.hasMoreElements())
+			{
+				String key = elemCandidates.nextElement();
+				Element nextElement = doc.createElement(key.toString());
+				Object nextKey = genericHashtable.get(key);
+				
+				System.out.println(nextKey.getClass());
+
+				if (nextKey.getClass() == String.class)
+				{
+					nextElement.setTextContent((String) nextKey);
+				}
+				else if (nextKey.getClass() == Hashtable.class)
+				{
+					Enumeration<String> nestedCandidates = ((Hashtable) nextKey).keys();
+					doc = enumElementCandidates(root, nestedCandidates, doc, (Hashtable) nextKey);
+				}
+				else if (nextKey.getClass() == ArrayList.class)
+				{
+					for (int r=0;r<((ArrayList) nextKey).size();r++)
+					{
+						Object nextKeyItem = ((ArrayList) nextKey).get(r);
+
+						if (nextKeyItem.getClass() == String.class)
+						{
+							nextElement.setTextContent((String) nextKeyItem);
+						}
+						else if (nextKeyItem.getClass() == Hashtable.class)
+						{
+							Enumeration<String> nestedCandidates = ((Hashtable) nextKeyItem).keys();
+							doc = enumElementCandidates(root, nestedCandidates, doc, (Hashtable) nextKeyItem);
+						}
+					}
+				}
+		
+				
+				root.appendChild(nextElement);
+			}
+
+			return doc;
+		}
+
+		public Document hashtableToXmlDoc(String rootElement, Hashtable genericHashtable) throws ParserConfigurationException
 		{
 			DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
 			DocumentBuilder constructor = manufactorum.newDocumentBuilder();
@@ -530,6 +584,13 @@ class noceboApi
 			Document doc = constructor.newDocument();
 
 			Element root = doc.createElement(rootElement);
+			doc.appendChild(root);
+
+			Enumeration<String> elemCandidates = genericHashtable.keys();
+
+			doc = enumElementCandidates(root, elemCandidates, doc, genericHashtable);
+
+			return doc;
 		}
 
 		//<response><nonce data=""></nonce><cookie data=""><key data=""></key></cookie><task class="" method="" args="b64">b64moddata</task></response>

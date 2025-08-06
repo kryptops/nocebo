@@ -1,9 +1,10 @@
 ﻿function modLogHelper($apiAddr)
 {
     $continueLoop = $true
-        $httpOut = httpsHandler "GET" @{"nClient-key"=$plaintextNApiKey} "https://$apiAddr/log"
-        $httpOut.content
-
+    $httpOut = httpsHandler "GET" @{"nClient-key"=$plaintextNApiKey} "https://$apiAddr/log"
+    #$modlogData = [xml]$httpOut.content
+    #$modlogData.modlog
+    $httpOut.content
 }
 
 function genericHandler($description, $params, $prompt)
@@ -14,6 +15,8 @@ function genericHandler($description, $params, $prompt)
     write-host ""
     if ($userInput.ToLower() -eq "task")
     {
+        $targetUUID = $params["uuid"]["value"]
+        $params["uuid"] = $targetUUID
         write-host -foregroundcolor yellow ">>> Attempting to task nocebo api"
         return 1
     }

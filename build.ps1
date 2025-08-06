@@ -16,3 +16,4 @@ cd ..\..\..\..
 
 cd ".\server\listener"
 cmd /c ".\mvnw clean install"
+cd ..\..
