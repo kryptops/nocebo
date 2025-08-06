@@ -11,7 +11,7 @@ It is strongly recommended that you execute this in a vm or on a system that can
 To execute the server, run...
 ```
 cd server\listener
-& 'C:\Program Files\Java\jdk-23\bin\java.exe' -jar .\target\listener-0.0.1-SNAPSHOT.jar
+java.exe -jar .\target\listener-0.0.1-SNAPSHOT.jar
 ```
 
 # Execution flow

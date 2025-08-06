@@ -530,7 +530,6 @@ class noceboApi
 			);
 			return new String(Base64.getEncoder().encode(encodedHash));
 		}
-		
 
 		public Document enumElementCandidates(Element root, Enumeration<String> elemCandidates, Document doc, Hashtable genericHashtable)
 		{
@@ -540,7 +539,6 @@ class noceboApi
 				Element nextElement = doc.createElement(key.toString());
 				Object nextKey = genericHashtable.get(key);
 				
-				System.out.println(nextKey.getClass());
 
 				if (nextKey.getClass() == String.class)
 				{
@@ -548,6 +546,7 @@ class noceboApi
 				}
 				else if (nextKey.getClass() == Hashtable.class)
 				{
+					System.out.println(nextKey.toString());
 					Enumeration<String> nestedCandidates = ((Hashtable) nextKey).keys();
 					doc = enumElementCandidates(root, nestedCandidates, doc, (Hashtable) nextKey);
 				}
