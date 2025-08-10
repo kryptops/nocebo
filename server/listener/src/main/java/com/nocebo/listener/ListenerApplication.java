@@ -54,9 +54,21 @@ import java.util.Enumeration;
 import java.util.Set;
 import java.util.UUID;
 import java.util.Arrays;
+import java.util.Date;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.time.LocalDate;
+import java.time.ZoneId;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys; 
+import io.jsonwebtoken.JwtBuilder;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -65,6 +77,7 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
+import com.fasterxml.jackson.databind.JsonSerializable.Base;
 import com.nocebo.listener.noceboApi.noceboApiUtil;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -73,6 +86,9 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.*;
 import javax.xml.transform.stream.StreamResult;
+
+import javax.crypto.spec.SecretKeySpec;
+import java.security.Key;
 
 import java.text.SimpleDateFormat;
 
@@ -98,6 +114,7 @@ public class ListenerApplication {
 			static String apiKey = "a18b25f2-6045-4aa2-b0b5-1dae01aa4f9a";
 			static String apiPass = "882fb2a4-23ed-46c3-b005-83b71c554845";
 			static String agentKey = "q8uf6,p2m1@31395aO+g+9592_4891lS";
+			static String secretKey = "NmNkMGUyMTk4ZmRkNDU2MzdhOTAxZDYwMmM5NGY5ZTIyMzIzNDhmZDNiNmVkMDE5ZmI3ZjA3MWUwODk5Y2EyZDNhNTg5ZjEz";
 			static Hashtable<String,session> sessionTable = new Hashtable();
 		}
 
@@ -290,7 +307,7 @@ public class ListenerApplication {
 		}
 
 		@PostMapping("/tasking")
-		String ctrl(@RequestBody Map<String, Object> requestData, @RequestHeader("nClient-key") String clientApiKey) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
+		String ctrl(@RequestBody Map<String, Object> requestData, @CookieValue("__nCli.key") String clientApiKey, @CookieValue("__nCli.uuid") String clientApiUUID) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
 			if (!clientApiKey.equals(epc.apiPass))
 			{
@@ -343,7 +360,7 @@ public class ListenerApplication {
 
 		@RequestMapping("/log")
 		//String log(@RequestBody noceboApiRequest requestData, @CookieValue("nocebo.auth") String authCookie)
-		String log(@RequestHeader("nClient-key") String clientApiKey) throws TransformerException, ParserConfigurationException
+		String log(@CookieValue("__nCli.key") String clientApiKey, @CookieValue("__nCli.uuid") String clientApiUUID) throws TransformerException, ParserConfigurationException
 		{
 		
 			if (!clientApiKey.equals(epc.apiPass))
@@ -379,11 +396,13 @@ public class ListenerApplication {
 			return String.join("",data);
 		}
 
-		//@RequestMapping("/auth")
-		//String auth(@RequestBody noceboApiRequest requestData)
-		//{
+		@RequestMapping("/auth")
+		String client(@RequestHeader("nClient-key") String clientApiKey, @RequestHeader("nClient-UUID") String clientApiUUID)
+		{
+			
+			
+		}
 
-		//}
 		class session
 		{
 			static String cookie = new String();
@@ -431,6 +450,9 @@ class noceboApi
 
 	static class noceboApiUtil
 	{
+
+			
+
 		public Hashtable<String, byte[]> mkRespoData(String keyWord) throws InvalidKeyException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, Exception
 		{
 			Hashtable<String, byte[]> retrData = new Hashtable();
@@ -531,66 +553,6 @@ class noceboApi
 			return new String(Base64.getEncoder().encode(encodedHash));
 		}
 
-		public Document enumElementCandidates(Element root, Enumeration<String> elemCandidates, Document doc, Hashtable genericHashtable)
-		{
-			while (elemCandidates.hasMoreElements())
-			{
-				String key = elemCandidates.nextElement();
-				Element nextElement = doc.createElement(key.toString());
-				Object nextKey = genericHashtable.get(key);
-				
-
-				if (nextKey.getClass() == String.class)
-				{
-					nextElement.setTextContent((String) nextKey);
-				}
-				else if (nextKey.getClass() == Hashtable.class)
-				{
-					System.out.println(nextKey.toString());
-					Enumeration<String> nestedCandidates = ((Hashtable) nextKey).keys();
-					doc = enumElementCandidates(root, nestedCandidates, doc, (Hashtable) nextKey);
-				}
-				else if (nextKey.getClass() == ArrayList.class)
-				{
-					for (int r=0;r<((ArrayList) nextKey).size();r++)
-					{
-						Object nextKeyItem = ((ArrayList) nextKey).get(r);
-
-						if (nextKeyItem.getClass() == String.class)
-						{
-							nextElement.setTextContent((String) nextKeyItem);
-						}
-						else if (nextKeyItem.getClass() == Hashtable.class)
-						{
-							Enumeration<String> nestedCandidates = ((Hashtable) nextKeyItem).keys();
-							doc = enumElementCandidates(root, nestedCandidates, doc, (Hashtable) nextKeyItem);
-						}
-					}
-				}
-		
-				
-				root.appendChild(nextElement);
-			}
-
-			return doc;
-		}
-
-		public Document hashtableToXmlDoc(String rootElement, Hashtable genericHashtable) throws ParserConfigurationException
-		{
-			DocumentBuilderFactory manufactorum = DocumentBuilderFactory.newInstance();
-			DocumentBuilder constructor = manufactorum.newDocumentBuilder();
-
-			Document doc = constructor.newDocument();
-
-			Element root = doc.createElement(rootElement);
-			doc.appendChild(root);
-
-			Enumeration<String> elemCandidates = genericHashtable.keys();
-
-			doc = enumElementCandidates(root, elemCandidates, doc, genericHashtable);
-
-			return doc;
-		}
 
 		//<response><nonce data=""></nonce><cookie data=""><key data=""></key></cookie><task class="" method="" args="b64">b64moddata</task></response>
 		public Document outputToXmlDoc(String cookie, String encKey, String nonce, ArrayList tasks) throws ParserConfigurationException
