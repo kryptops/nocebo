@@ -6,3 +6,4 @@ loader/src/main/java/com/nocebo/nLoader/iLoader$InvalidCertificateTrustManager.c
 loader/src/main/java/com/nocebo/nLoader/iLoader$1.class
 agent/src/main/java/com/nocebo/nCore/iAgent$security.class
 agent/src/main/java/com/nocebo/nCore/iAgent$countermeasures.class
+config.hcl

